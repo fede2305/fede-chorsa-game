@@ -16,6 +16,7 @@ export function createFrenada(chorsaLevel) {
       g.carY = stage.h * 0.82;
       g.carW = stage.w * 0.17;
       g.carH = g.carW * 1.85;
+      g.hud.hint = 'El Corsa va a fondo. Tocá para frenar lo más cerca posible del auto de adelante — sin chocarlo.';
       g.v0 = stage.h * 0.55 * chorsa.speedMult;
       g.decel = stage.h * 1.05;
       startRound(stage, g);

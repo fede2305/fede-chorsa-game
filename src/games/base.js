@@ -104,40 +104,82 @@ function drawHud(stage, ctx, g) {
 
 function drawStartPrompt(stage, ctx, t, g) {
   ctx.save();
-  ctx.fillStyle = 'rgba(12,14,22,0.72)';
-  ctx.fillRect(0, 0, stage.w, stage.h);
-  const pulse = 0.5 + 0.5 * Math.sin(t * 4);
+  const w = stage.w;
+  const h = stage.h;
+
+  // dim overlay
+  ctx.fillStyle = 'rgba(10,11,20,0.82)';
+  ctx.fillRect(0, 0, w, h);
+
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
 
-  // instruccion del juego
-  const hint = g.hud.hint || g.hud.label;
+  // ── INSTRUCTION CARD (center of screen) ──────────────────────────────────
+  const hint = g.hud.hint;
   if (hint) {
-    ctx.font = '700 17px system-ui, sans-serif';
-    ctx.fillStyle = 'rgba(255,220,60,0.95)';
-    const lines = wrapText(hint, 34);
-    const lineH = 24;
-    const blockH = lines.length * lineH;
-    const topY = stage.h * 0.22 - blockH / 2;
+    const lines = wrapText(hint, 26);
+    const lineH = 30;
+    const padV = 22;
+    const padH = 28;
+    const cardW = w * 0.86;
+    const cardH = lines.length * lineH + padV * 2 + 46; // 46 = title bar
+    const cardX = (w - cardW) / 2;
+    const cardY = h * 0.5 - cardH / 2 - 50; // above center
+
+    // card background
+    ctx.fillStyle = 'rgba(22,23,36,0.97)';
+    roundRectPath(ctx, cardX, cardY, cardW, cardH, 18);
+    ctx.fill();
+    // accent border
+    ctx.strokeStyle = 'rgba(243,193,75,0.6)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // "COMO JUGAR" header
+    ctx.fillStyle = '#f3c14b';
+    ctx.font = '900 13px system-ui, sans-serif';
+    ctx.letterSpacing = '1px';
+    ctx.fillText('CÓMO JUGAR', w / 2, cardY + 20);
+    ctx.letterSpacing = '0px';
+
+    // divider
+    ctx.strokeStyle = 'rgba(243,193,75,0.25)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(cardX + 16, cardY + 36);
+    ctx.lineTo(cardX + cardW - 16, cardY + 36);
+    ctx.stroke();
+
+    // hint lines
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '700 19px system-ui, sans-serif';
     for (let i = 0; i < lines.length; i++) {
-      ctx.fillText(lines[i], stage.w / 2, topY + i * lineH);
+      ctx.fillText(lines[i], w / 2, cardY + 36 + padV + lineH / 2 + i * lineH);
     }
   }
 
-  // "TOCA PARA ARRANCAR"
-  ctx.fillStyle = '#fff';
-  ctx.font = '900 44px system-ui, sans-serif';
-  ctx.shadowColor = 'rgba(0,0,0,0.6)';
-  ctx.shadowBlur = 12;
-  ctx.globalAlpha = 0.7 + 0.3 * pulse;
-  ctx.fillText('TOCA PARA', stage.w / 2, stage.h / 2 - 30);
-  ctx.fillText('ARRANCAR', stage.w / 2, stage.h / 2 + 28);
+  // ── TOCA PARA ARRANCAR ───────────────────────────────────────────────────
+  const pulse = 0.65 + 0.35 * Math.sin(t * 4);
+  const tapY = hint ? h * 0.5 + 80 : h * 0.5;
+
+  // pill background
+  ctx.globalAlpha = pulse;
+  ctx.fillStyle = '#e23b2e';
+  roundRectPath(ctx, w * 0.5 - 130, tapY - 34, 260, 68, 34);
+  ctx.fill();
   ctx.globalAlpha = 1;
+
+  ctx.fillStyle = '#fff';
+  ctx.font = '900 26px system-ui, sans-serif';
+  ctx.shadowColor = 'rgba(0,0,0,0.5)';
+  ctx.shadowBlur = 8;
+  ctx.fillText('TOCA PARA EMPEZAR', w / 2, tapY);
   ctx.shadowBlur = 0;
 
-  ctx.font = '600 15px system-ui, sans-serif';
-  ctx.fillStyle = 'rgba(255,255,255,0.55)';
-  ctx.fillText('no corre hasta que toques', stage.w / 2, stage.h / 2 + 70);
+  ctx.font = '500 13px system-ui, sans-serif';
+  ctx.fillStyle = 'rgba(255,255,255,0.42)';
+  ctx.fillText('el juego no corre hasta que toques', w / 2, tapY + 48);
+
   ctx.restore();
 }
 

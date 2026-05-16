@@ -16,6 +16,7 @@ export function createAcelera(chorsaLevel) {
       g.dist = 0;
       g.roadOff = 0;
       g.timeLeft = DURATION;
+      g.hud.hint = 'Tocá la pantalla lo más rápido que puedas — cada toque acelera el Corsa';
       g.hud.label = 'Toca rapido!';
       g.flash = 0;
     },

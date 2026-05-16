@@ -15,6 +15,7 @@ export function createFindCorsa(chorsaLevel) {
     setup(stage, chorsa, g) {
       g.round = 0;
       g.hud.label = '';
+      g.hud.hint = 'Tocá el Corsa ROJO entre todos los autos. Rápido — si tocás el equivocado perdés tiempo.';
       startRound(stage, chorsa, g);
     },
 
