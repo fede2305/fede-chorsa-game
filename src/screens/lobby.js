@@ -115,11 +115,55 @@ export function renderLobby(root, { go, state }) {
   });
 }
 
+const ADMIN_PASSWORD = 'ChorsaCumple29$';
+
 // ── ADMIN PANEL ────────────────────────────────────────────────────────────
 function openAdminPanel(root, { go, state }) {
   const overlay = document.createElement('div');
   overlay.className = 'overlay';
   overlay.style.cssText = 'position:fixed;inset:0;background:rgba(10,10,18,0.92);z-index:999;overflow-y:auto;padding:24px 16px 40px';
+
+  // Unlocked stays true for the lifetime of the panel
+  let adminUnlocked = false;
+
+  function promptPassword(onSuccess) {
+    overlay.innerHTML = '';
+    const card = document.createElement('div');
+    card.className = 'overlay-card';
+    card.style.cssText = 'max-width:320px;margin:auto;text-align:center;padding:28px';
+    card.innerHTML = `
+      <h3 style="margin:0 0 16px">Clave admin</h3>
+      <input id="pwd-input" type="password" placeholder="••••••••"
+        style="width:100%;padding:10px 14px;border-radius:10px;border:1px solid #444;background:#1a1a24;color:#fff;font-size:16px;box-sizing:border-box;margin-bottom:12px">
+      <p id="pwd-err" style="color:#e23b2e;font-size:13px;min-height:18px;margin:0 0 12px"></p>
+      <button class="btn" id="pwd-ok" style="width:100%;margin-bottom:10px">Entrar</button>
+      <button class="btn ghost" id="pwd-cancel" style="width:100%">Cancelar</button>
+    `;
+    overlay.appendChild(card);
+
+    const input = card.querySelector('#pwd-input');
+    input.focus();
+
+    const verify = () => {
+      if (input.value === ADMIN_PASSWORD) {
+        adminUnlocked = true;
+        onSuccess();
+      } else {
+        card.querySelector('#pwd-err').textContent = 'Clave incorrecta';
+        input.value = '';
+        input.focus();
+      }
+    };
+
+    card.querySelector('#pwd-ok').onclick = verify;
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') verify(); });
+    card.querySelector('#pwd-cancel').onclick = () => rebuild();
+  }
+
+  function requireAdmin(fn) {
+    if (adminUnlocked) { fn(); return; }
+    promptPassword(fn);
+  }
 
   function rebuild() {
     overlay.innerHTML = '';
@@ -144,7 +188,7 @@ function openAdminPanel(root, { go, state }) {
 
       <h3 style="margin:0 0 8px;font-size:15px">Mis puntajes</h3>
       <button class="btn ghost" id="reset-me" style="width:100%;margin-bottom:20px">
-        Borrar mis puntajes
+        Borrar mis puntajes ${adminUnlocked ? '' : '🔒'}
       </button>
 
       <h3 style="margin:0 0 8px;font-size:15px">Jugadores</h3>
@@ -156,7 +200,7 @@ function openAdminPanel(root, { go, state }) {
     overlay.appendChild(card);
     root.appendChild(overlay);
 
-    // toggle demo
+    // toggle demo (no requiere clave)
     card.querySelector('#toggle-demo').onclick = () => {
       setDemoMode(!demo);
       overlay.remove();
@@ -164,7 +208,7 @@ function openAdminPanel(root, { go, state }) {
       renderLobby(root, { go, state });
     };
 
-    // etapa unlock buttons
+    // etapa unlock buttons (no requiere clave)
     const etapaUnlocks = card.querySelector('#etapa-unlocks');
     for (let e = 1; e <= totalEtapas(); e++) {
       if (state.completedEtapas.includes(e)) {
@@ -184,21 +228,18 @@ function openAdminPanel(root, { go, state }) {
       etapaUnlocks.innerHTML = '<span style="color:#888;font-size:13px">Ninguna etapa completada aún</span>';
     }
 
-    // reset my scores
-    card.querySelector('#reset-me').onclick = async () => {
+    // reset my scores (requiere clave)
+    card.querySelector('#reset-me').onclick = () => requireAdmin(async () => {
+      rebuild();
       if (!confirm('¿Borrar TUS puntajes? No se puede deshacer.')) return;
       await clearMyScores(state.user.id);
       state.scores = {};
-      state.completedEtapas = state.completedEtapas.filter((e) => {
-        // remove etapas where I had scores
-        return false; // clear all
-      });
       state.completedEtapas = [];
       localStorage.setItem('fc_completed', JSON.stringify([]));
       overlay.remove();
       root.innerHTML = '';
       renderLobby(root, { go, state });
-    };
+    });
 
     // players list
     fetchLeaderboard().then((rows) => {
@@ -219,13 +260,14 @@ function openAdminPanel(root, { go, state }) {
         const resetBtn = document.createElement('button');
         resetBtn.className = 'btn ghost';
         resetBtn.style.cssText = 'padding:4px 10px;font-size:12px';
-        resetBtn.textContent = 'Reset';
-        resetBtn.onclick = async () => {
+        resetBtn.textContent = adminUnlocked ? 'Reset' : '🔒 Reset';
+        resetBtn.onclick = () => requireAdmin(async () => {
+          rebuild();
           if (!confirm(`¿Borrar puntajes de ${r.name}?`)) return;
           await adminResetPlayer(r.id);
           if (r.id === state.user.id) state.scores = {};
           rebuild();
-        };
+        });
         row.appendChild(resetBtn);
         pl.appendChild(row);
       });
@@ -233,8 +275,9 @@ function openAdminPanel(root, { go, state }) {
       const resetAllBtn = document.createElement('button');
       resetAllBtn.className = 'btn ghost';
       resetAllBtn.style.cssText = 'width:100%;margin-top:12px;color:#e23b2e;border-color:#e23b2e';
-      resetAllBtn.textContent = 'Borrar TODOS los puntajes';
-      resetAllBtn.onclick = async () => {
+      resetAllBtn.textContent = adminUnlocked ? 'Borrar TODOS los puntajes' : '🔒 Borrar TODOS los puntajes';
+      resetAllBtn.onclick = () => requireAdmin(async () => {
+        rebuild();
         if (!confirm('¿Borrar los puntajes de TODOS? No hay vuelta atrás.')) return;
         await adminResetAll();
         state.scores = {};
@@ -243,7 +286,7 @@ function openAdminPanel(root, { go, state }) {
         overlay.remove();
         root.innerHTML = '';
         renderLobby(root, { go, state });
-      };
+      });
       pl.appendChild(resetAllBtn);
     });
 

@@ -147,7 +147,7 @@ export async function adminResetPlayer(userId) {
   }
   const { error } = await client.rpc('admin_reset_player', {
     p_user_id: userId,
-    p_secret: 'chorsa2025',
+    p_secret: 'ChorsaCumple29$',
   });
   if (error) console.warn('adminResetPlayer:', error.message);
 }
