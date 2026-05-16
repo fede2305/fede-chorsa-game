@@ -4,6 +4,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { LINEUP } from './lineup.js';
+import { isDemoMode } from './clock.js';
 
 const URL = import.meta.env.VITE_SUPABASE_URL;
 const KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -99,6 +100,7 @@ export async function fetchMyScores(userId) {
 // Guarda el puntaje de un slot si supera al guardado. Devuelve el mejor vigente.
 export async function submitScore(user, slot, score) {
   const meta = LINEUP.find((s) => s.slot === slot);
+  if (isDemoMode()) return score; // demo: no guardar nada en DB ni localStorage
   if (OFFLINE) {
     const scores = JSON.parse(localStorage.getItem(LS_SCORES) || '{}');
     if (!(slot in scores) || score > scores[slot]) scores[slot] = score;

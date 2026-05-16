@@ -4,7 +4,7 @@ import { slotsForEtapa } from './lineup.js';
 import { renderIntro } from './screens/intro.js';
 import { renderLogin } from './screens/login.js';
 import { renderLobby } from './screens/lobby.js';
-import { renderEtapa } from './screens/etapa.js';
+import { renderEtapa, renderDemoGame } from './screens/etapa.js';
 import { renderResults } from './screens/results.js';
 
 const app = document.getElementById('app');
@@ -21,6 +21,7 @@ const screens = {
   login: renderLogin,
   lobby: renderLobby,
   etapa: renderEtapa,
+  demo_game: renderDemoGame,
   results: renderResults,
 };
 

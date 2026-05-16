@@ -201,3 +201,105 @@ export function renderEtapa(root, { go, state, params }) {
 
   showAnecdote().then(() => playSlot());
 }
+
+// ── DEMO RUNNER ───────────────────────────────────────────────────────────────
+// Corre un slot específico en bucle infinito sin guardar puntaje.
+export function renderDemoGame(root, { go, state, params }) {
+  const slot = params.slot; // objeto LINEUP: { slot, etapa, chorsa, game }
+  const meta = GAMES[slot.game];
+
+  const wrap = document.createElement('div');
+  wrap.className = 'game-wrap';
+  root.appendChild(wrap);
+
+  const exitBtn = document.createElement('button');
+  exitBtn.textContent = '✕';
+  exitBtn.style.cssText = [
+    'position:fixed', 'top:14px', 'right:14px', 'z-index:300',
+    'width:44px', 'height:44px', 'border-radius:50%',
+    'background:rgba(0,0,0,0.55)', 'color:#fff',
+    'border:2px solid rgba(255,255,255,0.35)',
+    'font-size:20px', 'font-weight:900', 'cursor:pointer',
+    'display:flex', 'align-items:center', 'justify-content:center',
+    'line-height:1', 'padding:0',
+  ].join(';');
+  document.body.appendChild(exitBtn);
+
+  let currentFinish = null;
+
+  function exitDemo() {
+    stopMusic();
+    exitBtn.remove();
+    go('lobby', { _skipRefresh: true });
+  }
+
+  exitBtn.onclick = () => {
+    if (currentFinish) currentFinish(null);
+    else exitDemo();
+  };
+
+  function waitChoice(innerHtml, buttons) {
+    return new Promise((resolve) => {
+      wrap.innerHTML = '';
+      const o = document.createElement('div');
+      o.className = 'overlay';
+      const card = document.createElement('div');
+      card.className = 'overlay-card';
+      card.innerHTML = innerHtml;
+      buttons.forEach((b, i) => {
+        const btn = document.createElement('button');
+        btn.className = 'btn' + (b.cls ? ' ' + b.cls : '');
+        btn.textContent = b.label;
+        btn.onclick = () => resolve(i);
+        card.appendChild(btn);
+      });
+      o.appendChild(card);
+      wrap.appendChild(o);
+    });
+  }
+
+  function runGame() {
+    wrap.innerHTML = '';
+    const stage = new Stage(wrap);
+    const game = meta.create(slot.chorsa);
+    return new Promise((resolve) => {
+      let settled = false;
+      const finish = (score) => {
+        if (settled) return;
+        settled = true;
+        currentFinish = null;
+        stage.destroy();
+        resolve(score);
+      };
+      currentFinish = finish;
+      startMusic();
+      stage.run(game, slot.chorsa).then((s) => { stopMusic(); finish(s); });
+    });
+  }
+
+  async function loop() {
+    await waitChoice(
+      `<div class="lvl-tag">DEMO &mdash; Chorsa ${slot.chorsa}</div>
+       <div class="big">${meta.name}</div>
+       <p>${meta.tip || ''}</p>
+       <p class="muted" style="font-size:12px">Los puntajes no se guardan en modo demo.</p>`,
+      [{ label: 'Jugar' }, { label: 'Volver', cls: 'secondary' }]
+    ).then(async (choice) => {
+      if (choice === 1) { exitDemo(); return; }
+
+      const score = await runGame();
+      if (score === null) { exitDemo(); return; }
+
+      const again = await waitChoice(
+        `<div class="lvl-tag">DEMO &mdash; ${meta.name}</div>
+         <p>Puntaje</p>
+         <div class="score-big">${score}</div>`,
+        [{ label: 'Jugar de nuevo' }, { label: 'Volver al lobby', cls: 'secondary' }]
+      );
+      if (again === 1) { exitDemo(); return; }
+      loop();
+    });
+  }
+
+  loop();
+}

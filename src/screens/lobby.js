@@ -3,6 +3,7 @@
 
 import { ETAPA_NAMES } from '../chorsa.js';
 import { LINEUP, slotsForEtapa, totalEtapas } from '../lineup.js';
+import { GAMES } from '../games/registry.js';
 import { isEtapaUnlocked, unlockLabel, isDemoMode, setDemoMode } from '../clock.js';
 import { fetchLeaderboard, signOut, clearMyScores, adminResetPlayer, adminResetAll, fetchMyScores } from '../supabase.js';
 
@@ -52,6 +53,8 @@ function _renderLobby(root, { go, state }) {
     <h2 style="margin-top:4px">Etapas de la noche</h2>
     <div id="etapas"></div>
 
+    ${isDemoMode() ? '<h2>🎮 Probar juego</h2><div id="demo-slots"></div>' : ''}
+
     <h2>Ranking</h2>
     <div id="lb"><div class="spinner"></div></div>
 
@@ -89,6 +92,31 @@ function _renderLobby(root, { go, state }) {
       card.onclick = () => go('etapa', { etapa: e });
     }
     etapasEl.appendChild(card);
+  }
+
+  // Demo game selector
+  if (isDemoMode()) {
+    const demoEl = s.querySelector('#demo-slots');
+    for (let e = 1; e <= totalEtapas(); e++) {
+      const group = document.createElement('div');
+      group.style.cssText = 'margin-bottom:10px';
+      const label = document.createElement('div');
+      label.style.cssText = 'font-size:12px;color:#888;margin-bottom:6px;font-weight:700;text-transform:uppercase;letter-spacing:.5px';
+      label.textContent = `Etapa ${e} — ${ETAPA_NAMES[e]}`;
+      group.appendChild(label);
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap';
+      for (const slot of slotsForEtapa(e)) {
+        const btn = document.createElement('button');
+        btn.className = 'btn ghost';
+        btn.style.cssText = 'padding:6px 12px;font-size:13px;flex:1;min-width:0';
+        btn.textContent = GAMES[slot.game]?.name || slot.game;
+        btn.onclick = () => go('demo_game', { slot });
+        row.appendChild(btn);
+      }
+      group.appendChild(row);
+      demoEl.appendChild(group);
+    }
   }
 
   s.querySelector('#out').onclick = async () => {
