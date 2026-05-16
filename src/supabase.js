@@ -129,6 +129,39 @@ export async function submitScore(user, slot, score) {
   return best;
 }
 
+// Borra todos los puntajes del usuario actual.
+export async function clearMyScores(userId) {
+  if (OFFLINE) {
+    localStorage.removeItem(LS_SCORES);
+    return;
+  }
+  const { error } = await client.from('scores').delete().eq('user_id', userId);
+  if (error) console.warn('clearMyScores:', error.message);
+}
+
+// Admin: borra puntajes de cualquier jugador (requiere RPC admin_reset_player en Supabase).
+export async function adminResetPlayer(userId) {
+  if (OFFLINE) {
+    localStorage.removeItem(LS_SCORES);
+    return;
+  }
+  const { error } = await client.rpc('admin_reset_player', {
+    p_user_id: userId,
+    p_secret: 'chorsa2025',
+  });
+  if (error) console.warn('adminResetPlayer:', error.message);
+}
+
+// Admin: borra todos los puntajes (requiere RPC admin_reset_all en Supabase).
+export async function adminResetAll() {
+  if (OFFLINE) {
+    localStorage.removeItem(LS_SCORES);
+    return;
+  }
+  const { error } = await client.rpc('admin_reset_all', { p_secret: 'chorsa2025' });
+  if (error) console.warn('adminResetAll:', error.message);
+}
+
 // Ranking global: suma de best_score por jugador, ordenado desc.
 export async function fetchLeaderboard() {
   if (OFFLINE) {

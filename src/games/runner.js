@@ -27,14 +27,16 @@ export function createRunner(chorsaLevel) {
       g.baseSpeed = stage.h * 0.5 * chorsa.speedMult;
       g.roadOff = 0;
       g.obst = [];
-      g.spawnT = -0.9; // pequeno respiro al arrancar
-      g.hud.label = 'Esquiva el trafico - se acelera solo';
+      g.spawnT = -0.9;
+      g.graceScore = 20;
+      g.hud.hint = 'Tocá izquierda o derecha para cambiar de carril y esquivar el tráfico';
+      g.hud.label = 'Toca izq/der para cambiar carril';
     },
 
     step(dt, stage, t, g) {
       const chorsa = g.chorsa;
       // dificultad creciente con el tiempo jugado
-      const ramp = rampFactor(g.playT, 0.05, 3.0);
+      const ramp = rampFactor(g.playT, 0.14, 3.5);
       const speed = g.baseSpeed * ramp;
       const spawnEvery = clamp(1.0 / ramp, 0.32, 1.0);
 

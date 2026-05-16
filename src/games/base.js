@@ -59,7 +59,7 @@ export function makeGame(chorsaLevel, impl) {
     if (!g._ready) return;
     impl.render(stage, ctx, t, g);
     drawHud(stage, ctx, g);
-    if (!g._started) drawStartPrompt(stage, ctx, t);
+    if (!g._started) drawStartPrompt(stage, ctx, t, g);
     else if (g._graceFlash > 0) drawGraceFlash(stage, ctx, g);
   };
   return g;
@@ -102,25 +102,76 @@ function drawHud(stage, ctx, g) {
   ctx.restore();
 }
 
-function drawStartPrompt(stage, ctx, t) {
+function drawStartPrompt(stage, ctx, t, g) {
   ctx.save();
-  ctx.fillStyle = 'rgba(12,14,22,0.55)';
+  ctx.fillStyle = 'rgba(12,14,22,0.72)';
   ctx.fillRect(0, 0, stage.w, stage.h);
   const pulse = 0.5 + 0.5 * Math.sin(t * 4);
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
+
+  // instruccion del juego
+  const hint = g.hud.hint || g.hud.label;
+  if (hint) {
+    ctx.font = '700 17px system-ui, sans-serif';
+    ctx.fillStyle = 'rgba(255,220,60,0.95)';
+    const lines = wrapText(hint, 34);
+    const lineH = 24;
+    const blockH = lines.length * lineH;
+    const topY = stage.h * 0.22 - blockH / 2;
+    for (let i = 0; i < lines.length; i++) {
+      ctx.fillText(lines[i], stage.w / 2, topY + i * lineH);
+    }
+  }
+
+  // "TOCA PARA ARRANCAR"
   ctx.fillStyle = '#fff';
-  ctx.font = '900 40px system-ui, sans-serif';
+  ctx.font = '900 44px system-ui, sans-serif';
   ctx.shadowColor = 'rgba(0,0,0,0.6)';
   ctx.shadowBlur = 12;
   ctx.globalAlpha = 0.7 + 0.3 * pulse;
-  ctx.fillText('TOCA PARA', stage.w / 2, stage.h / 2 - 28);
-  ctx.fillText('ARRANCAR', stage.w / 2, stage.h / 2 + 24);
+  ctx.fillText('TOCA PARA', stage.w / 2, stage.h / 2 - 30);
+  ctx.fillText('ARRANCAR', stage.w / 2, stage.h / 2 + 28);
   ctx.globalAlpha = 1;
   ctx.shadowBlur = 0;
-  ctx.font = '700 18px system-ui, sans-serif';
-  ctx.fillStyle = 'rgba(255,255,255,0.7)';
-  ctx.fillText('tomate tu tiempo, no corre hasta que toques', stage.w / 2, stage.h / 2 + 70);
+
+  ctx.font = '600 15px system-ui, sans-serif';
+  ctx.fillStyle = 'rgba(255,255,255,0.55)';
+  ctx.fillText('no corre hasta que toques', stage.w / 2, stage.h / 2 + 70);
+  ctx.restore();
+}
+
+function wrapText(text, maxChars) {
+  const words = text.split(' ');
+  const lines = [];
+  let cur = '';
+  for (const w of words) {
+    if ((cur + ' ' + w).trim().length > maxChars) {
+      if (cur) lines.push(cur);
+      cur = w;
+    } else {
+      cur = (cur + ' ' + w).trim();
+    }
+  }
+  if (cur) lines.push(cur);
+  return lines;
+}
+
+function drawGraceFlash(stage, ctx, g) {
+  ctx.save();
+  const a = Math.min(1, g._graceFlash / 1.7);
+  ctx.fillStyle = `rgba(20,200,80,${0.22 * a})`;
+  ctx.fillRect(0, 0, stage.w, stage.h);
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.globalAlpha = a;
+  ctx.fillStyle = '#2de07a';
+  ctx.font = '900 30px system-ui, sans-serif';
+  ctx.shadowColor = 'rgba(0,0,0,0.5)';
+  ctx.shadowBlur = 10;
+  ctx.fillText('¡CASI! Seguí intentando', stage.w / 2, stage.h / 2);
+  ctx.shadowBlur = 0;
+  ctx.globalAlpha = 1;
   ctx.restore();
 }
 

@@ -12,6 +12,7 @@ const app = document.getElementById('app');
 export const state = {
   user: null,
   scores: {}, // slot -> mejor puntaje
+  completedEtapas: JSON.parse(localStorage.getItem('fc_completed') || '[]'),
 };
 
 const screens = {

@@ -50,6 +50,10 @@ export function renderEtapa(root, { go, state, params }) {
 
   async function playSlot() {
     if (idx >= slots.length) {
+      if (!state.completedEtapas.includes(etapa)) {
+        state.completedEtapas.push(etapa);
+        localStorage.setItem('fc_completed', JSON.stringify(state.completedEtapas));
+      }
       go('results', { etapa });
       return;
     }

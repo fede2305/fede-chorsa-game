@@ -20,12 +20,14 @@ export function createBirras(chorsaLevel) {
       g.baseFall = stage.h * 0.4 * chorsa.speedMult;
       g.miss = 0;
       g.roadOff = 0;
+      g.graceScore = 15;
+      g.hud.hint = 'Movete con el dedo para agarrar las birras que caen — 3 perdidas = fin';
       g.hud.label = `Se te escaparon: 0/${MAX_MISS}`;
     },
 
     step(dt, stage, t, g) {
       const chorsa = g.chorsa;
-      const ramp = rampFactor(g.playT, 0.05, 3.0);
+      const ramp = rampFactor(g.playT, 0.10, 3.0);
       const fall = g.baseFall * ramp;
       const spawnEvery = clamp(0.7 / ramp, 0.26, 0.7);
 

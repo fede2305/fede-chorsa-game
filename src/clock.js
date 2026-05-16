@@ -29,7 +29,17 @@ function nowMinutes() {
   return nightMinutes(d.getHours(), d.getMinutes());
 }
 
+export function isDemoMode() {
+  return localStorage.getItem('fc_demo_mode') === '1';
+}
+
+export function setDemoMode(on) {
+  if (on) localStorage.setItem('fc_demo_mode', '1');
+  else localStorage.removeItem('fc_demo_mode');
+}
+
 export function isEtapaUnlocked(etapa) {
+  if (isDemoMode()) return true;
   const t = UNLOCK_TIMES[etapa];
   if (!t) return false;
   return nowMinutes() >= nightMinutes(t.h, t.m);

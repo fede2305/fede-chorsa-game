@@ -18,14 +18,16 @@ export function createJumper(chorsaLevel) {
       g.jump = stage.h * 1.5;
       g.baseSpeed = stage.h * 0.6 * chorsa.speedMult;
       g.obst = [];
-      g.spawnT = -1.0; // respiro al arrancar
+      g.spawnT = -1.0;
       g.dist = 0;
       g.roadOff = 0;
-      g.hud.label = 'Toca para saltar - se acelera solo';
+      g.graceScore = 20;
+      g.hud.hint = 'Tocá para saltar los baches y los conos — se acelera solo';
+      g.hud.label = 'Toca para saltar';
     },
 
     step(dt, stage, t, g) {
-      const ramp = rampFactor(g.playT, 0.05, 3.0);
+      const ramp = rampFactor(g.playT, 0.14, 3.5);
       const speed = g.baseSpeed * ramp;
       const gap = clamp(1.25 / ramp, 0.45, 1.25);
       const jitter = g.chorsa.drift * 0.8;
