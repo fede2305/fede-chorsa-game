@@ -284,7 +284,8 @@ function openAdminPanel(root, { go, state }) {
         resetBtn.textContent = adminUnlocked ? 'Reset' : '🔒 Reset';
         resetBtn.onclick = () => requireAdmin(async () => {
           if (!confirm(`¿Borrar puntajes de ${r.name}?`)) { rebuild(); return; }
-          await adminResetPlayer(r.id);
+          const err = await adminResetPlayer(r.id);
+          if (err) { alert(`Error al resetear: ${err}\n\nAsegurate de haber corrido el SQL de las RPCs en Supabase.`); rebuild(); return; }
           if (r.id === state.user.id) {
             state.scores = {};
             state.completedEtapas = [];
@@ -302,7 +303,8 @@ function openAdminPanel(root, { go, state }) {
       resetAllBtn.textContent = adminUnlocked ? 'Borrar TODOS los puntajes' : '🔒 Borrar TODOS los puntajes';
       resetAllBtn.onclick = () => requireAdmin(async () => {
         if (!confirm('¿Borrar los puntajes de TODOS? No hay vuelta atrás.')) { rebuild(); return; }
-        await adminResetAll();
+        const err = await adminResetAll();
+        if (err) { alert(`Error al resetear todo: ${err}\n\nAsegurate de haber corrido el SQL de las RPCs en Supabase.`); rebuild(); return; }
         state.scores = {};
         state.completedEtapas = [];
         localStorage.setItem('fc_completed', JSON.stringify([]));
