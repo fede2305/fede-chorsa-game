@@ -1,5 +1,6 @@
 import './style.css';
 import { initAuth, getUser, fetchMyScores } from './supabase.js';
+import { slotsForEtapa } from './lineup.js';
 import { renderIntro } from './screens/intro.js';
 import { renderLogin } from './screens/login.js';
 import { renderLobby } from './screens/lobby.js';
@@ -31,6 +32,15 @@ export function go(screen, params = {}) {
 export async function refreshScores() {
   if (state.user) {
     state.scores = await fetchMyScores(state.user.id);
+    // Si un etapa está marcada como jugada pero ya no tiene scores en DB,
+    // es porque los borraron remotamente → desbloquear automáticamente.
+    const before = state.completedEtapas.length;
+    state.completedEtapas = state.completedEtapas.filter((e) =>
+      slotsForEtapa(e).some((s) => s.slot in state.scores)
+    );
+    if (state.completedEtapas.length !== before) {
+      localStorage.setItem('fc_completed', JSON.stringify(state.completedEtapas));
+    }
   }
 }
 

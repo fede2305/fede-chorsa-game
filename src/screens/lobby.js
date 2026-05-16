@@ -4,7 +4,7 @@
 import { ETAPA_NAMES } from '../chorsa.js';
 import { LINEUP, slotsForEtapa, totalEtapas } from '../lineup.js';
 import { isEtapaUnlocked, unlockLabel, isDemoMode, setDemoMode } from '../clock.js';
-import { fetchLeaderboard, signOut, clearMyScores, adminResetPlayer, adminResetAll } from '../supabase.js';
+import { fetchLeaderboard, signOut, clearMyScores, adminResetPlayer, adminResetAll, fetchMyScores } from '../supabase.js';
 
 function totalScore(scores) {
   return Object.values(scores).reduce((a, b) => a + b, 0);
@@ -14,7 +14,25 @@ function etapaScore(scores, etapa) {
   return slotsForEtapa(etapa).reduce((a, s) => a + (scores[s.slot] || 0), 0);
 }
 
-export function renderLobby(root, { go, state }) {
+export function renderLobby(root, { go, state, _skipRefresh }) {
+  if (_skipRefresh) { _renderLobby(root, { go, state }); return; }
+  // Refresca scores al entrar al lobby → detecta resets remotos
+  fetchMyScores(state.user?.id || 'local').then((fresh) => {
+    state.scores = fresh;
+    // Si una etapa está marcada jugada pero ya no tiene scores, desbloquear
+    const before = state.completedEtapas.length;
+    state.completedEtapas = state.completedEtapas.filter((e) =>
+      slotsForEtapa(e).some((s) => s.slot in fresh)
+    );
+    if (state.completedEtapas.length !== before) {
+      localStorage.setItem('fc_completed', JSON.stringify(state.completedEtapas));
+    }
+    root.innerHTML = '';
+    _renderLobby(root, { go, state });
+  });
+}
+
+function _renderLobby(root, { go, state }) {
   const s = document.createElement('div');
   s.className = 'screen';
 
