@@ -6,7 +6,7 @@ import { createAcelera } from './acelera.js';
 import { createFindCorsa } from './findcorsa.js';
 import { createBirras } from './birras.js';
 import { createNafta } from './nafta.js';
-import { createJumper } from './jumper.js';
+import { createSobriedad } from './sobriedad.js';
 import { createFrenada } from './frenada.js';
 import { createDragrace } from './dragrace.js';
 import { createParking } from './parking.js';
@@ -14,47 +14,102 @@ import { createParking } from './parking.js';
 export const GAMES = {
   runner: {
     name: 'Runner',
-    tip: 'Toca izquierda o derecha para cambiar de carril y esquivar el trafico.',
+    tip: 'Tocá izquierda o derecha para cambiar de carril y esquivar el tráfico.',
+    tipBullets: [
+      'Tocá el lado IZQUIERDO o DERECHO de la pantalla para cambiar de carril',
+      'El tráfico viene cada vez más rápido — no te dormís',
+      'Es infinito: sobreviví lo máximo posible',
+    ],
+    controlIcon: '◀ ▶',
     create: createRunner,
   },
   acelera: {
     name: 'Acelera',
-    tip: 'Toca lo mas rapido que puedas para acelerar el Corsa.',
+    tip: 'Tocá lo más rápido que puedas para acelerar el Corsa.',
+    tipBullets: [
+      'Cada toque suma un pisotón al acelerador',
+      'La fricción te frena — si parás, perdés velocidad',
+      'Tenés 7 segundos para llegar lo más lejos posible',
+    ],
+    controlIcon: '👆 👆',
     create: createAcelera,
   },
   findcorsa: {
-    name: 'Encontra el Corsa rojo',
-    tip: 'Toca el Corsa rojo lo antes posible. Cuidado con los otros autos.',
+    name: 'Encontrá el Corsa rojo',
+    tip: 'Tocá el Corsa rojo lo antes posible. Cuidado con los otros autos.',
+    tipBullets: [
+      'Hay autos parecidos pero NO son el Corsa rojo',
+      'Si tocás el equivocado perdés 1.3 segundos',
+      'Los autos se mueven — apuntá rápido y preciso',
+    ],
+    controlIcon: '🎯',
     create: createFindCorsa,
   },
   birras: {
-    name: 'Agarra birras',
-    tip: 'Move el Corsa para agarrar las birras que caen.',
+    name: 'Agarrá birras',
+    tip: 'Movete con el dedo para agarrar las birras (🍺). Mate (🧉) = bonus.',
+    tipBullets: [
+      'Movete con el dedo para mover al Corsa',
+      'Birras = 10 puntos. Mates = 25 puntos bonus',
+      'Si se te caen 3 birras, perdés. Los mates no descuentan',
+    ],
+    controlIcon: '↔',
     create: createBirras,
   },
   nafta: {
     name: 'Carga nafta',
-    tip: 'Manten apretado para cargar. Solta cerca del tanque lleno, sin pasarte.',
+    tip: 'Mantené apretado para cargar. Soltá cerca del tanque lleno, sin pasarte.',
+    tipBullets: [
+      'Tap-hold = cargás nafta. Soltá para detener',
+      'El objetivo es llegar exactamente al 100%',
+      'Si te pasás, derramás. 5 tanques en total',
+    ],
+    controlIcon: '✋',
     create: createNafta,
   },
-  jumper: {
-    name: 'Esquiva el bache',
-    tip: 'Toca para saltar los baches y conos.',
-    create: createJumper,
+  sobriedad: {
+    name: 'Control de alcoholemia',
+    tip: 'Soplá el alcoholímetro y caminá la línea sin desviarte.',
+    tipBullets: [
+      'FASE 1: Tap-hold para soplar. Mantené la aguja en zona VERDE 2.4s',
+      'FASE 2: Arrastrá el dedo para caminar sobre la línea blanca',
+      'El chorsa te ladea solo — corregí siempre la dirección',
+    ],
+    controlIcon: '✋ ↔',
+    create: createSobriedad,
   },
   frenada: {
     name: 'Frenada de emergencia',
-    tip: 'Frena lo mas cerca posible del obstaculo, sin chocarlo.',
+    tip: 'Frená lo más cerca posible del obstáculo, sin chocarlo.',
+    tipBullets: [
+      'El Corsa va a fondo — vas a chocar si no frenás',
+      'Tocá para frenar. Cuanto más cerca pares, más puntos',
+      '5 rondas con autos cada vez más cerca',
+    ],
+    controlIcon: '👆',
     create: createFrenada,
   },
   dragrace: {
     name: 'Drag race',
-    tip: 'Toca para cambiar de marcha cuando la aguja este en la zona verde.',
+    tip: 'Esperá el VERDE del semáforo. Después tocá cuando la aguja esté en la zona verde para cambiar de marcha.',
+    tipBullets: [
+      'Esperá los 3 destellos rojos del semáforo → arranca con VERDE',
+      'Tocá cuando la aguja del tacómetro esté en la zona verde',
+      '6 marchas. Cada cambio mal te penaliza',
+    ],
+    controlIcon: '🚦',
     create: createDragrace,
   },
   parking: {
     name: 'Estaciona el Corsa',
-    tip: 'Manten apretado a izquierda o derecha para doblar. Meti el auto en el recuadro.',
+    tip: 'Arrastrá el volante para girar. Pedal verde acelera, rojo frena. Metelo en el box.',
+    tipBullets: [
+      'Volante: arrastrá izq/der para girar las ruedas',
+      'Pedal VERDE (derecha) = acelerar. Pedal ROJO (izquierda) = frenar',
+      'Mantené freno cuando estés parado para reversa',
+      'Esquivá los autos vecinos y metete derecho en el box',
+    ],
+    controlIcon: '🎮',
     create: createParking,
   },
 };

@@ -181,8 +181,8 @@ export function createDragrace(chorsaLevel) {
 
       // ── TACHOMETER ────────────────────────────────────────────────────────
       const cx = w / 2;
-      const cy = h * 0.33;
-      const R  = w * 0.36;
+      const cy = h * 0.34;
+      const R  = w * 0.44;
       const A0 = Math.PI * 0.78;
       const A1 = Math.PI * 0.22;
       const ang = (v) => A0 + (A1 - A0) * v;
@@ -209,23 +209,23 @@ export function createDragrace(chorsaLevel) {
       ctx.stroke();
 
       ctx.lineWidth = 2;
-      ctx.fillStyle = 'rgba(255,255,255,0.6)';
-      ctx.font = '600 11px system-ui,sans-serif';
+      ctx.fillStyle = 'rgba(255,255,255,0.75)';
+      ctx.font = '700 16px system-ui,sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       for (let i = 0; i <= 8; i++) {
         const v = i / 8;
         const a = ang(v);
         const isMajor = i % 2 === 0;
-        const r1 = R - (isMajor ? 28 : 18);
+        const r1 = R - (isMajor ? 32 : 20);
         const r2 = R - 4;
-        ctx.strokeStyle = `rgba(255,255,255,${isMajor ? 0.7 : 0.35})`;
+        ctx.strokeStyle = `rgba(255,255,255,${isMajor ? 0.85 : 0.4})`;
         ctx.beginPath();
         ctx.moveTo(cx + Math.cos(a) * r1, cy + Math.sin(a) * r1);
         ctx.lineTo(cx + Math.cos(a) * r2, cy + Math.sin(a) * r2);
         ctx.stroke();
         if (isMajor) {
-          const lr = R - 42;
+          const lr = R - 50;
           ctx.fillText(`${i}`, cx + Math.cos(a) * lr, cy + Math.sin(a) * lr);
         }
       }
@@ -256,15 +256,18 @@ export function createDragrace(chorsaLevel) {
         const pulse = 0.75 + 0.25 * Math.sin(t * 14);
         ctx.save();
         ctx.globalAlpha = pulse;
-        ctx.font = '900 22px system-ui,sans-serif';
+        ctx.font = '900 30px system-ui,sans-serif';
         ctx.textAlign = 'center';
         ctx.fillStyle = '#2ea44f';
-        ctx.fillText('¡CAMBIA!', cx, cy + R + 28);
+        ctx.shadowColor = 'rgba(0,0,0,0.7)';
+        ctx.shadowBlur = 8;
+        ctx.fillText('¡CAMBIÁ!', cx, cy + R + 38);
+        ctx.shadowBlur = 0;
         ctx.restore();
       }
 
       // ── H-PATTERN GEAR LEVER ──────────────────────────────────────────────
-      drawHPattern(ctx, w - 68, h - 95, g.gear);
+      drawHPattern(ctx, w - 88, h - 130, g.gear);
 
       // flash overlay
       if (g.flash > 0) {
@@ -286,10 +289,10 @@ export function createDragrace(chorsaLevel) {
 }
 
 function drawHPattern(ctx, ox, oy, currentGear) {
-  const spacing = 22;
+  const spacing = 30;
   ctx.save();
-  ctx.strokeStyle = 'rgba(255,255,255,0.3)';
-  ctx.lineWidth = 2;
+  ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+  ctx.lineWidth = 2.5;
   // vertical bar
   ctx.beginPath();
   ctx.moveTo(ox + spacing / 2, oy);
@@ -310,10 +313,10 @@ function drawHPattern(ctx, ox, oy, currentGear) {
     const active = gi === currentGear;
     ctx.fillStyle = active ? '#e23b2e' : 'rgba(255,255,255,0.18)';
     ctx.beginPath();
-    ctx.arc(gx, gy, active ? 7 : 4, 0, Math.PI * 2);
+    ctx.arc(gx, gy, active ? 11 : 6, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = active ? '#fff' : 'rgba(255,255,255,0.35)';
-    ctx.font = `${active ? '800' : '600'} 8px system-ui,sans-serif`;
+    ctx.fillStyle = active ? '#fff' : 'rgba(255,255,255,0.5)';
+    ctx.font = `${active ? '900' : '700'} 14px system-ui,sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(gi, gx, gy);
@@ -323,33 +326,33 @@ function drawHPattern(ctx, ox, oy, currentGear) {
 
 function drawSemaforo(ctx, w, h, lights, t) {
   // Dark overlay
-  ctx.fillStyle = 'rgba(8,8,16,0.78)';
+  ctx.fillStyle = 'rgba(8,8,16,0.82)';
   ctx.fillRect(0, 0, w, h);
 
   // Panel
-  const pw = 160;
-  const ph = 60;
+  const pw = 220;
+  const ph = 86;
   const px = (w - pw) / 2;
-  const py = h * 0.38;
+  const py = h * 0.36;
   ctx.fillStyle = '#1a1a24';
   ctx.beginPath();
-  roundRectPath(ctx, px, py, pw, ph, 14);
+  roundRectPath(ctx, px, py, pw, ph, 16);
   ctx.fill();
-  ctx.strokeStyle = '#444';
-  ctx.lineWidth = 2;
+  ctx.strokeStyle = '#555';
+  ctx.lineWidth = 3;
   ctx.stroke();
 
   // Lights
-  const lx = [px + 22, px + 62, px + 102, px + 142];
+  const lx = [px + 30, px + 84, px + 138, px + 192];
   for (let i = 0; i < 3; i++) {
     const lit = i < lights;
     ctx.fillStyle = lit ? '#e23b2e' : 'rgba(100,20,20,0.6)';
     if (lit) {
       ctx.shadowColor = '#e23b2e';
-      ctx.shadowBlur = 18;
+      ctx.shadowBlur = 24;
     }
     ctx.beginPath();
-    ctx.arc(lx[i], py + ph / 2, 16, 0, Math.PI * 2);
+    ctx.arc(lx[i], py + ph / 2, 22, 0, Math.PI * 2);
     ctx.fill();
     ctx.shadowBlur = 0;
   }
@@ -361,19 +364,22 @@ function drawSemaforo(ctx, w, h, lights, t) {
     ctx.globalAlpha = pulse;
     ctx.fillStyle = '#2ea44f';
     ctx.shadowColor = '#2ea44f';
-    ctx.shadowBlur = 22;
+    ctx.shadowBlur = 28;
     ctx.beginPath();
-    ctx.arc(lx[3], py + ph / 2, 16, 0, Math.PI * 2);
+    ctx.arc(lx[3], py + ph / 2, 22, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
   }
 
   // Label
   ctx.fillStyle = lights >= 3 ? '#2ea44f' : '#f3c14b';
-  ctx.font = '800 18px system-ui,sans-serif';
+  ctx.font = '900 24px system-ui,sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(lights >= 3 ? '¡TOCA AHORA!' : 'PREPARATE...', w / 2, py + ph + 24);
+  ctx.shadowColor = 'rgba(0,0,0,0.7)';
+  ctx.shadowBlur = 8;
+  ctx.fillText(lights >= 3 ? '¡TOCÁ AHORA!' : 'PREPARATE...', w / 2, py + ph + 32);
+  ctx.shadowBlur = 0;
 }
 
 function roundRectPath(ctx, x, y, w, h, r) {

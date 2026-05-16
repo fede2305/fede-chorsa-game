@@ -115,8 +115,8 @@ export function createNafta(chorsaLevel) {
       }
 
       // ── TANK BAR ──────────────────────────────────────────────────────────
-      const bx = w * 0.74;
-      const bw = w * 0.16;
+      const bx = w * 0.70;
+      const bw = w * 0.22;
       const by = h * 0.16;
       const bh = h * 0.62;
 
@@ -166,10 +166,10 @@ export function createNafta(chorsaLevel) {
 
       // 100% line
       ctx.strokeStyle = '#2ea44f';
-      ctx.lineWidth = 3;
+      ctx.lineWidth = 4;
       ctx.beginPath();
-      ctx.moveTo(bx - 7, by);
-      ctx.lineTo(bx + bw + 7, by);
+      ctx.moveTo(bx - 10, by);
+      ctx.lineTo(bx + bw + 10, by);
       ctx.stroke();
 
       // 110% line (above container)
@@ -187,22 +187,28 @@ export function createNafta(chorsaLevel) {
       ctx.lineWidth = 1;
 
       // percentage label
-      ctx.fillStyle = '#fff';
-      ctx.font = '800 20px system-ui, sans-serif';
+      ctx.fillStyle = g.fill > 112 ? '#e23b2e' : g.fill > 90 && g.fill <= 110 ? '#2ea44f' : '#fff';
+      ctx.font = '900 36px system-ui, sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText(`${Math.round(g.fill)}%`, bx + bw / 2, by + bh + 26);
+      ctx.shadowColor = 'rgba(0,0,0,0.55)';
+      ctx.shadowBlur = 6;
+      ctx.fillText(`${Math.round(g.fill)}%`, bx + bw / 2, by + bh + 36);
+      ctx.shadowBlur = 0;
 
       if (g.locked) {
-        ctx.font = '800 22px system-ui, sans-serif';
+        ctx.font = '900 30px system-ui, sans-serif';
         ctx.fillStyle = g.spill ? '#e23b2e' : '#2ea44f';
+        ctx.shadowColor = 'rgba(0,0,0,0.6)';
+        ctx.shadowBlur = 8;
         ctx.fillText(g.spill ? '¡SE DERRAMÓ!' : `+${g.lastPts}`, w / 2, h * 0.9);
+        ctx.shadowBlur = 0;
       } else {
-        ctx.font = '700 14px system-ui, sans-serif';
-        ctx.fillStyle = 'rgba(255,255,255,0.75)';
-        ctx.fillText('manten apretado... soltá cerca del 100%', w / 2, h * 0.9);
-        ctx.font = '600 12px system-ui, sans-serif';
-        ctx.fillStyle = 'rgba(200,200,200,0.55)';
-        ctx.fillText('(pasarte un poco también suma)', w / 2, h * 0.935);
+        ctx.font = '800 18px system-ui, sans-serif';
+        ctx.fillStyle = 'rgba(255,255,255,0.85)';
+        ctx.fillText('mantené apretado... soltá cerca del 100%', w / 2, h * 0.9);
+        ctx.font = '700 13px system-ui, sans-serif';
+        ctx.fillStyle = 'rgba(200,200,200,0.65)';
+        ctx.fillText('(pasarte un poco también suma)', w / 2, h * 0.94);
       }
       ctx.textAlign = 'left';
     },

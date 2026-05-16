@@ -100,9 +100,14 @@ export function renderEtapa(root, { go, state, params }) {
     const a = ANECDOTES[etapa];
     if (!a) return;
     await waitChoice(
-      `<div class="lvl-tag">Etapa ${etapa} &mdash; ${ETAPA_NAMES[etapa]}</div>
-       <div class="big" style="font-size:20px;margin:10px 0 4px">${a.title}</div>
-       <p style="font-size:15px;line-height:1.55;color:#ccc;text-align:left;margin:4px 0 12px">${a.text}</p>`,
+      `<div class="lvl-tag">Etapa ${etapa} de 5 &mdash; ${ETAPA_NAMES[etapa]}</div>
+       <div class="etapa-progress">
+         ${Array.from({ length: 5 }, (_, i) =>
+           `<div class="step-dot ${i + 1 < etapa ? 'done' : i + 1 === etapa ? 'cur' : ''}"></div>`
+         ).join('')}
+       </div>
+       <div class="big" style="font-size:26px;margin:14px 0 8px">${a.title}</div>
+       <p style="font-size:17px;line-height:1.6;color:#d4d4d8;text-align:left;margin:8px 0 16px">${a.text}</p>`,
       [{ label: '¡Dale, entro! →' }]
     );
   }
@@ -146,19 +151,28 @@ export function renderEtapa(root, { go, state, params }) {
     const meta = GAMES[slot.game];
     let best = state.scores[slot.slot] || 0;
 
+    const bulletsHtml = (meta.tipBullets || [])
+      .map((b) => `<li>${b}</li>`)
+      .join('');
+    const iconHtml = meta.controlIcon
+      ? `<div class="control-icon">${meta.controlIcon}</div>`
+      : '';
+
     await waitChoice(
       `<div class="lvl-tag">${ETAPA_NAMES[etapa]} &middot; minijuego ${idx + 1}/${slots.length}</div>
-       <div class="big">${meta.name}</div>
-       <p>${meta.tip || ''}</p>
-       ${slot.boss ? '<p class="boss-tag">JEFE FINAL &mdash; chorsa al maximo</p>' : ''}
-       ${best ? `<p class="muted">Tu mejor: ${best}</p>` : ''}`,
-      [{ label: 'Jugar' }]
+       <div class="big" style="font-size:30px;margin:6px 0 8px">${meta.name}</div>
+       <p style="font-size:16px;color:#d4d4d8;margin:4px 0 12px">${meta.tip || ''}</p>
+       ${bulletsHtml ? `<ul class="tip-bullets">${bulletsHtml}</ul>` : ''}
+       ${iconHtml}
+       ${slot.boss ? '<p class="boss-tag">JEFE FINAL &mdash; chorsa al máximo</p>' : ''}
+       ${best ? `<p class="best-score">Tu mejor: <b>${best}</b></p>` : ''}`,
+      [{ label: 'Jugar →' }]
     );
 
     await waitChoice(
       `<div class="lvl-tag">${meta.name}</div>
-       <div class="big">Intento 1</div>
-       <p class="muted">Tranqui: el juego no arranca hasta que toques la pantalla.</p>`,
+       <div class="attempt-badge">INTENTO 1 de 2</div>
+       <p class="muted" style="font-size:15px;margin-top:14px">Tranqui: el juego no arranca hasta que toques la pantalla.</p>`,
       [{ label: 'Empezar' }]
     );
 
@@ -177,8 +191,8 @@ export function renderEtapa(root, { go, state, params }) {
     if (choice === 0) {
       await waitChoice(
         `<div class="lvl-tag">${meta.name}</div>
-         <div class="big">Intento 2</div>
-         <p class="muted">Ultimo intento de este minijuego.</p>`,
+         <div class="attempt-badge">INTENTO 2 de 2</div>
+         <p class="muted" style="font-size:15px;margin-top:14px">Último intento de este minijuego.</p>`,
         [{ label: 'Empezar' }]
       );
       const s2 = await runOne(slot, meta);
@@ -188,7 +202,7 @@ export function renderEtapa(root, { go, state, params }) {
         `<div class="lvl-tag">${meta.name}</div>
          <p>Puntaje del intento</p>
          <div class="score-big">${s2}</div>
-         <p class="muted">Mejor de este minijuego: ${best}</p>`,
+         <p class="muted">Mejor de este minijuego: <b>${best}</b></p>`,
         [{ label: 'Guardar y seguir' }]
       );
     }

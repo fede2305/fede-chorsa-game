@@ -1,8 +1,13 @@
 // Runner INFINITO: el Corsa esquiva trafico en 3 carriles.
 // No termina por tiempo: se va poniendo cada vez mas rapido y con mas
 // trafico hasta que chocas. Toca izquierda/derecha para cambiar de carril.
+//
+// Aleatoriedad: pesos por carril (menor probabilidad en el carril del jugador),
+// jitter de cadencia, descarte si el carril ya tiene obstáculo cercano,
+// y ráfagas ocasionales para evitar patrón predecible.
+// Aceleración: SIN TOPE — crece lineal con el tiempo.
 
-import { makeGame, clamp, lerp, drawRoad, rampFactor } from './base.js';
+import { makeGame, clamp, lerp, drawRoad } from './base.js';
 import { drawCar } from '../engine/sprites.js';
 import { driftOffset } from '../engine/effects.js';
 import { sfx } from '../engine/audio.js';
@@ -16,6 +21,15 @@ function laneX(stage, lane) {
   return left + (span * (lane + 0.5)) / LANES;
 }
 
+function spawnObstacle(g, stage, lane, yOffset = 0) {
+  g.obst.push({
+    lane,
+    x: laneX(stage, lane),
+    y: -g.carH * 1.5 + yOffset,
+    color: OBST_COLORS[(Math.random() * OBST_COLORS.length) | 0],
+  });
+}
+
 export function createRunner(chorsaLevel) {
   return makeGame(chorsaLevel, {
     setup(stage, chorsa, g) {
@@ -25,21 +39,23 @@ export function createRunner(chorsaLevel) {
       g.carH = g.carW * 1.85;
       g.carY = stage.h * 0.8;
       g.dist = 0;
-      g.baseSpeed = stage.h * 0.5 * chorsa.speedMult;
+      g.baseSpeed = stage.h * 0.48 * chorsa.speedMult;
       g.roadOff = 0;
       g.obst = [];
       g.spawnT = -0.9;
+      g.spawnJitter = 1.0;
+      g.nextBurst = 7 + Math.random() * 3; // primera ráfaga entre 7-10s
       g.graceScore = 20;
-      g.hud.hint = 'Tocá izquierda o derecha para cambiar de carril y esquivar el tráfico';
-      g.hud.label = 'Toca izq/der para cambiar carril';
+      g.hud.hint = 'Tocá el lado IZQUIERDO o DERECHO de la pantalla para cambiar de carril';
+      g.hud.label = '◀ izq | der ▶';
     },
 
     step(dt, stage, t, g) {
       const chorsa = g.chorsa;
-      // dificultad creciente con el tiempo jugado
-      const ramp = rampFactor(g.playT, 0.14, 3.5);
+      // dificultad creciente sin tope: +4.5% por segundo
+      const ramp = 1 + g.playT * 0.045;
       const speed = g.baseSpeed * ramp;
-      const spawnEvery = clamp(1.0 / ramp, 0.32, 1.0);
+      const spawnEvery = Math.max(0.30, 1.05 / ramp);
 
       // cambio de carril
       if (stage.pointer.justDown) {
@@ -59,27 +75,50 @@ export function createRunner(chorsaLevel) {
       g.roadOff = (g.roadOff + speed * dt) % 64;
       g.score = Math.floor(g.dist / 7);
 
-      // spawn de trafico — garantiza al menos 1 carril libre en zona de peligro
+      // ── SPAWN PRINCIPAL ──────────────────────────────────────────────
       g.spawnT += dt;
-      if (g.spawnT >= spawnEvery) {
+      const targetSpawn = spawnEvery * g.spawnJitter;
+      if (g.spawnT >= targetSpawn) {
         g.spawnT = 0;
-        // lanes occupied by obstacles in the lower 70% of screen (reaction zone)
-        const busyLanes = new Set(
-          g.obst.filter((o) => o.y > stage.h * 0.15).map((o) => o.lane)
-        );
-        let lane;
-        if (busyLanes.size >= LANES - 1) {
-          // force a free lane so player always has an escape
-          lane = [0, 1, 2].find((l) => !busyLanes.has(l)) ?? (Math.random() * LANES) | 0;
-        } else {
-          lane = (Math.random() * LANES) | 0;
+        g.spawnJitter = 0.75 + Math.random() * 0.5; // 0.75x–1.25x
+
+        // pesos por carril: el del jugador tiene menos chance
+        const weights = [1.0, 1.0, 1.0];
+        weights[g.lane] = 0.55;
+        const total = weights[0] + weights[1] + weights[2];
+        let r = Math.random() * total;
+        let lane = 0;
+        for (let i = 0; i < weights.length; i++) {
+          r -= weights[i];
+          if (r <= 0) { lane = i; break; }
         }
-        g.obst.push({
-          lane,
-          x: laneX(stage, lane),
-          y: -g.carH * 1.5, // spawn further off-screen for more warning time
-          color: OBST_COLORS[(Math.random() * OBST_COLORS.length) | 0],
-        });
+
+        // si el carril elegido ya tiene un obstáculo demasiado cerca del spawn, abortamos
+        const tooCloseY = stage.h * 0.18;
+        const tooClose = g.obst.some(
+          (o) => o.lane === lane && o.y < tooCloseY && o.y > -g.carH * 4
+        );
+        if (!tooClose) {
+          spawnObstacle(g, stage, lane);
+        }
+      }
+
+      // ── RÁFAGAS ocasionales ─────────────────────────────────────────
+      if (g.playT > g.nextBurst) {
+        g.nextBurst = g.playT + 6 + Math.random() * 4.5;
+        // 2 obstáculos en carriles distintos, dejando uno libre
+        const freeLane = (Math.random() * LANES) | 0;
+        const others = [0, 1, 2].filter((l) => l !== freeLane);
+        // asegurar que ninguno tenga obstáculo muy cercano
+        for (let i = 0; i < others.length; i++) {
+          const l = others[i];
+          const occupied = g.obst.some(
+            (o) => o.lane === l && o.y < stage.h * 0.25 && o.y > -g.carH * 4
+          );
+          if (!occupied) {
+            spawnObstacle(g, stage, l, -i * g.carH * 1.6);
+          }
+        }
       }
 
       // mover y chequear choque
@@ -94,6 +133,9 @@ export function createRunner(chorsaLevel) {
         }
       }
       g.obst = g.obst.filter((o) => o.y < stage.h + g.carH);
+
+      // velocidad-tag visible (lo usa el render)
+      g.speedRamp = ramp;
     },
 
     render(stage, ctx, t, g) {
@@ -110,14 +152,19 @@ export function createRunner(chorsaLevel) {
         const wx = laneX(stage, lane);
         const alpha = Math.min(1, (-y / (g.carH * 1.5)));
         ctx.save();
-        ctx.globalAlpha = alpha * 0.85;
+        ctx.globalAlpha = alpha * 0.9;
         ctx.fillStyle = '#f5b301';
         ctx.beginPath();
         ctx.moveTo(wx, 16);
-        ctx.lineTo(wx - 11, 36);
-        ctx.lineTo(wx + 11, 36);
+        ctx.lineTo(wx - 14, 42);
+        ctx.lineTo(wx + 14, 42);
         ctx.closePath();
         ctx.fill();
+        // signo de exclamación en el triángulo
+        ctx.fillStyle = '#000';
+        ctx.font = '900 14px system-ui, sans-serif';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText('!', wx, 32);
         ctx.restore();
       }
 
@@ -125,6 +172,18 @@ export function createRunner(chorsaLevel) {
         drawCar(ctx, o.x, o.y, g.carW, g.carH, o.color);
       }
       drawCar(ctx, g.carX, g.carY, g.carW, g.carH, '#e23b2e');
+
+      // velocidad tag (abajo derecha)
+      if (g.speedRamp) {
+        ctx.save();
+        ctx.fillStyle = 'rgba(0,0,0,0.55)';
+        ctx.fillRect(stage.w - 95, stage.h - 38, 90, 30);
+        ctx.fillStyle = g.speedRamp > 2.5 ? '#e23b2e' : g.speedRamp > 1.8 ? '#f3c14b' : '#fff';
+        ctx.font = '900 16px system-ui, sans-serif';
+        ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+        ctx.fillText(`${g.speedRamp.toFixed(1)}× speed`, stage.w - 12, stage.h - 23);
+        ctx.restore();
+      }
     },
   });
 }

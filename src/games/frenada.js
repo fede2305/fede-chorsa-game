@@ -100,15 +100,18 @@ export function createFrenada(chorsaLevel) {
 
       ctx.textAlign = 'center';
       if (g.locked) {
-        ctx.font = '900 30px system-ui, sans-serif';
+        ctx.font = '900 42px system-ui, sans-serif';
         ctx.fillStyle = g.crashed ? '#e23b2e' : '#22a559';
-        ctx.fillText(g.crashed ? '¡CHOCASTE!' : `+${g.lastPts}`, w / 2, h * 0.5);
-      } else {
-        ctx.font = '900 26px system-ui, sans-serif';
-        ctx.fillStyle = g.braking ? '#f5b301' : '#fff';
         ctx.shadowColor = 'rgba(0,0,0,0.6)';
-        ctx.shadowBlur = 8;
-        ctx.fillText(g.braking ? 'FRENANDO...' : 'TOCA PARA FRENAR', w / 2, h * 0.93);
+        ctx.shadowBlur = 10;
+        ctx.fillText(g.crashed ? '¡CHOCASTE!' : `+${g.lastPts}`, w / 2, h * 0.5);
+        ctx.shadowBlur = 0;
+      } else {
+        ctx.font = '900 38px system-ui, sans-serif';
+        ctx.fillStyle = g.braking ? '#f5b301' : '#fff';
+        ctx.shadowColor = 'rgba(0,0,0,0.7)';
+        ctx.shadowBlur = 10;
+        ctx.fillText(g.braking ? 'FRENANDO...' : 'TOCÁ PARA FRENAR', w / 2, h * 0.93);
         ctx.shadowBlur = 0;
       }
       ctx.textAlign = 'left';

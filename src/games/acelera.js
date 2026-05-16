@@ -115,20 +115,22 @@ export function createAcelera(chorsaLevel) {
       drawCarSide(ctx, w * 0.5, h * 0.69 + bounce, w * 0.72, h * 0.16, '#e23b2e');
 
       // ── RPM BAR ───────────────────────────────────────────────────────────
+      const barW = 36;
       const barH = h * 0.5;
-      const barX = w - 46;
+      const barX = w - barW - 14;
       const barY = h * 0.25;
-      ctx.fillStyle = 'rgba(0,0,0,0.5)';
-      ctx.fillRect(barX, barY, 26, barH);
+      ctx.fillStyle = 'rgba(0,0,0,0.55)';
+      ctx.fillRect(barX, barY, barW, barH);
       const fill = speedFrac * barH;
       const grd = ctx.createLinearGradient(0, barY + barH, 0, barY);
       grd.addColorStop(0, '#2ea44f');
       grd.addColorStop(0.6, '#f3c14b');
       grd.addColorStop(1, '#e23b2e');
       ctx.fillStyle = grd;
-      ctx.fillRect(barX, barY + barH - fill, 26, fill);
-      ctx.strokeStyle = 'rgba(255,255,255,0.6)';
-      ctx.strokeRect(barX, barY, 26, barH);
+      ctx.fillRect(barX, barY + barH - fill, barW, fill);
+      ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(barX, barY, barW, barH);
 
       // needle pulse on the bar when tapping
       if (g.flash > 0) {
@@ -138,14 +140,17 @@ export function createAcelera(chorsaLevel) {
 
       // ── SPEED READOUT ─────────────────────────────────────────────────────
       const kmh = Math.round(speedFrac * 220);
-      ctx.fillStyle = 'rgba(255,255,255,0.9)';
-      ctx.font = '900 28px system-ui, sans-serif';
+      ctx.fillStyle = 'rgba(255,255,255,0.95)';
+      ctx.font = '900 44px system-ui, sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText(`${kmh} km/h`, w * 0.44, h * 0.86);
+      ctx.shadowColor = 'rgba(0,0,0,0.6)';
+      ctx.shadowBlur = 8;
+      ctx.fillText(`${kmh} km/h`, w * 0.42, h * 0.86);
+      ctx.shadowBlur = 0;
 
-      ctx.font = '700 14px system-ui, sans-serif';
-      ctx.fillStyle = 'rgba(255,255,255,0.6)';
-      ctx.fillText('TOCA TOCA TOCA', w * 0.44, h * 0.91);
+      ctx.font = '900 18px system-ui, sans-serif';
+      ctx.fillStyle = g.flash > 0.5 ? '#f3c14b' : 'rgba(255,255,255,0.7)';
+      ctx.fillText('TOCÁ TOCÁ TOCÁ', w * 0.42, h * 0.92);
       ctx.textAlign = 'left';
     },
   });

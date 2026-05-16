@@ -69,6 +69,7 @@ export function createBirras(chorsaLevel) {
             sfx('miss');
             g.miss++;
             g.hud.label = `Birras perdidas: ${g.miss}/${MAX_MISS}`;
+            g.recentLossT = 1;
             if (g.miss >= MAX_MISS) {
               g.done = true;
               return;
@@ -102,36 +103,49 @@ export function createBirras(chorsaLevel) {
 
       drawCar(ctx, g.carX, g.carY, g.carW, g.carH, '#e23b2e');
 
-      // ── LIVES (hearts) ────────────────────────────────────────────────────
+      // ── LIVES (hearts) — más grandes y con animación de "rotura" ─────────
       const livesLeft = MAX_MISS - g.miss;
       for (let i = 0; i < MAX_MISS; i++) {
-        ctx.fillStyle = i < livesLeft ? '#e23b2e' : 'rgba(255,255,255,0.22)';
-        const hx = w - 30 - i * 34;
-        const hy = 32;
-        ctx.beginPath();
-        ctx.arc(hx - 5, hy, 6, 0, Math.PI * 2);
-        ctx.arc(hx + 5, hy, 6, 0, Math.PI * 2);
-        ctx.moveTo(hx - 11, hy + 2);
-        ctx.lineTo(hx, hy + 14);
-        ctx.lineTo(hx + 11, hy + 2);
-        ctx.fill();
+        const alive = i < livesLeft;
+        const justLost = i === livesLeft && g.recentLossT > 0;
+        const scale = justLost ? 1 + Math.sin((1 - g.recentLossT) * Math.PI * 2) * 0.25 : 1;
+        ctx.save();
+        const hx = w - 32 - i * 54;
+        const hy = 55;
+        ctx.translate(hx, hy);
+        ctx.scale(scale, scale);
+        if (alive) {
+          ctx.fillStyle = '#e23b2e';
+          ctx.shadowColor = 'rgba(226,59,46,0.55)';
+          ctx.shadowBlur = 10;
+        } else {
+          ctx.fillStyle = 'rgba(255,255,255,0.22)';
+        }
+        drawHeart(ctx, 0, 0, 18);
+        ctx.shadowBlur = 0;
+        ctx.restore();
       }
+      // tick down lost animation
+      if (g.recentLossT > 0) g.recentLossT = Math.max(0, g.recentLossT - 0.02);
 
       // ── LEGEND chip (first 4 seconds only) ───────────────────────────────
-      if (g.playT < 4.5) {
-        const a = Math.min(1, Math.min(g.playT, 4.5 - g.playT) * 1.5);
+      if (g.playT < 5) {
+        const a = Math.min(1, Math.min(g.playT, 5 - g.playT) * 1.5);
         ctx.save();
         ctx.globalAlpha = a;
-        ctx.fillStyle = 'rgba(16,16,24,0.78)';
-        roundChip(ctx, w / 2 - 118, h * 0.55, 236, 56, 14);
+        ctx.fillStyle = 'rgba(16,16,24,0.85)';
+        roundChip(ctx, w / 2 - 150, h * 0.52, 300, 76, 14);
         ctx.fill();
-        ctx.font = '700 13px system-ui,sans-serif';
+        ctx.strokeStyle = 'rgba(243,193,75,0.4)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.font = '800 17px system-ui,sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillStyle = '#f3c14b';
-        ctx.fillText('🍺 birra = +10 pts  —  perder 3 = fin', w / 2, h * 0.555);
+        ctx.fillText('🍺 BIRRA = +10 pts — perder 3 = fin', w / 2, h * 0.535);
         ctx.fillStyle = '#2de07a';
-        ctx.fillText('☕ mate = +25 pts bonus  (no perjudica)', w / 2, h * 0.578);
+        ctx.fillText('🧉 MATE = +25 pts bonus (no perjudica)', w / 2, h * 0.565);
         ctx.restore();
       }
     },
@@ -146,4 +160,13 @@ function roundChip(ctx, x, y, w, h, r) {
   ctx.arcTo(x, y + h, x, y, r);
   ctx.arcTo(x, y, x + w, y, r);
   ctx.closePath();
+}
+
+function drawHeart(ctx, cx, cy, size) {
+  ctx.beginPath();
+  ctx.arc(cx - size * 0.35, cy - size * 0.1, size * 0.45, Math.PI * 1.1, Math.PI * 1.95);
+  ctx.arc(cx + size * 0.35, cy - size * 0.1, size * 0.45, Math.PI * 1.05, Math.PI * 1.9);
+  ctx.lineTo(cx, cy + size * 0.65);
+  ctx.closePath();
+  ctx.fill();
 }

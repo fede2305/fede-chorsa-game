@@ -60,46 +60,67 @@ export function makeGame(chorsaLevel, impl) {
   g.draw = (stage, ctx, t) => {
     if (!g._ready) return;
     impl.render(stage, ctx, t, g);
-    drawHud(stage, ctx, g);
+    drawHud(stage, ctx, t, g);
     if (!g._started) drawStartPrompt(stage, ctx, t, g);
     else if (g._graceFlash > 0) drawGraceFlash(stage, ctx, g);
   };
   return g;
 }
 
-function drawHud(stage, ctx, g) {
+function drawHud(stage, ctx, t, g) {
   ctx.save();
-  ctx.font = '900 30px system-ui, sans-serif';
   ctx.textBaseline = 'top';
-  // chip de puntaje
+
+  // ── chip de puntaje (arriba-izquierda) ─────────────────────────────────
   const txt = String(g.score);
-  ctx.font = '900 30px system-ui, sans-serif';
+  ctx.font = '900 42px system-ui, sans-serif';
   const tw = ctx.measureText(txt).width;
-  roundRectPath(ctx, 14, 14, tw + 28, 42, 12);
-  ctx.fillStyle = 'rgba(255,255,255,0.92)';
+  roundRectPath(ctx, 12, 12, tw + 32, 56, 14);
+  ctx.fillStyle = 'rgba(255,255,255,0.94)';
+  ctx.shadowColor = 'rgba(0,0,0,0.45)';
+  ctx.shadowBlur = 8;
+  ctx.shadowOffsetY = 2;
   ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetY = 0;
   ctx.fillStyle = '#16161c';
   ctx.fillText(txt, 28, 19);
 
+  // ── label (chip oscuro debajo) ─────────────────────────────────────────
   if (g.hud.label) {
-    ctx.font = '800 14px system-ui, sans-serif';
+    ctx.font = '800 18px system-ui, sans-serif';
     const lw = ctx.measureText(g.hud.label).width;
-    roundRectPath(ctx, 14, 62, lw + 22, 26, 9);
-    ctx.fillStyle = 'rgba(20,20,28,0.6)';
+    roundRectPath(ctx, 12, 76, lw + 26, 32, 10);
+    ctx.fillStyle = 'rgba(20,20,28,0.78)';
     ctx.fill();
+    ctx.strokeStyle = 'rgba(243,193,75,0.32)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
     ctx.fillStyle = '#fff';
-    ctx.fillText(g.hud.label, 25, 68);
+    ctx.fillText(g.hud.label, 25, 83);
   }
 
+  // ── timer (arriba-derecha) ─────────────────────────────────────────────
   if (g.hud.time != null) {
-    ctx.font = '900 30px system-ui, sans-serif';
     const tt = Math.max(0, g.hud.time).toFixed(1);
+    ctx.font = '900 42px system-ui, sans-serif';
     const ttw = ctx.measureText(tt).width;
-    roundRectPath(ctx, stage.w - ttw - 42, 14, ttw + 28, 42, 12);
-    ctx.fillStyle = g.hud.time < 3 ? 'rgba(232,73,58,0.95)' : 'rgba(255,255,255,0.92)';
+    const urgent = g.hud.time < 3;
+    if (urgent) {
+      // pulsación visible
+      ctx.globalAlpha = 0.6 + 0.4 * Math.abs(Math.sin(t * 7));
+    }
+    roundRectPath(ctx, stage.w - ttw - 44, 12, ttw + 32, 56, 14);
+    ctx.fillStyle = urgent ? 'rgba(226,59,46,0.96)' : 'rgba(255,255,255,0.94)';
+    ctx.shadowColor = urgent ? 'rgba(226,59,46,0.55)' : 'rgba(0,0,0,0.45)';
+    ctx.shadowBlur = urgent ? 14 : 8;
+    ctx.shadowOffsetY = 2;
     ctx.fill();
-    ctx.fillStyle = g.hud.time < 3 ? '#fff' : '#16161c';
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetY = 0;
+    ctx.fillStyle = urgent ? '#fff' : '#16161c';
     ctx.fillText(tt, stage.w - ttw - 28, 19);
+    ctx.globalAlpha = 1;
   }
   ctx.restore();
 }
@@ -162,25 +183,31 @@ function drawStartPrompt(stage, ctx, t, g) {
 
   // ── TOCA PARA ARRANCAR ───────────────────────────────────────────────────
   const pulse = 0.65 + 0.35 * Math.sin(t * 4);
-  const tapY = hint ? h * 0.5 + 80 : h * 0.5;
+  const tapY = hint ? h * 0.5 + 100 : h * 0.5;
 
   // pill background
   ctx.globalAlpha = pulse;
   ctx.fillStyle = '#e23b2e';
-  roundRectPath(ctx, w * 0.5 - 130, tapY - 34, 260, 68, 34);
+  roundRectPath(ctx, w * 0.5 - 160, tapY - 40, 320, 80, 40);
   ctx.fill();
   ctx.globalAlpha = 1;
 
   ctx.fillStyle = '#fff';
-  ctx.font = '900 26px system-ui, sans-serif';
-  ctx.shadowColor = 'rgba(0,0,0,0.5)';
-  ctx.shadowBlur = 8;
-  ctx.fillText('TOCA PARA EMPEZAR', w / 2, tapY);
+  ctx.font = '900 32px system-ui, sans-serif';
+  ctx.shadowColor = 'rgba(0,0,0,0.55)';
+  ctx.shadowBlur = 10;
+  ctx.fillText('TOCÁ PARA EMPEZAR', w / 2, tapY);
   ctx.shadowBlur = 0;
 
-  ctx.font = '500 13px system-ui, sans-serif';
-  ctx.fillStyle = 'rgba(255,255,255,0.42)';
-  ctx.fillText('el juego no corre hasta que toques', w / 2, tapY + 48);
+  // mini-icono debajo (pulgar)
+  ctx.font = '700 22px system-ui, sans-serif';
+  ctx.globalAlpha = 0.5 + 0.5 * Math.sin(t * 4);
+  ctx.fillText('👆', w / 2, tapY + 50);
+  ctx.globalAlpha = 1;
+
+  ctx.font = '500 14px system-ui, sans-serif';
+  ctx.fillStyle = 'rgba(255,255,255,0.5)';
+  ctx.fillText('el juego no corre hasta que toques', w / 2, tapY + 88);
 
   ctx.restore();
 }
@@ -210,9 +237,9 @@ function drawGraceFlash(stage, ctx, g) {
   ctx.textBaseline = 'middle';
   ctx.globalAlpha = a;
   ctx.fillStyle = '#2de07a';
-  ctx.font = '900 30px system-ui, sans-serif';
-  ctx.shadowColor = 'rgba(0,0,0,0.5)';
-  ctx.shadowBlur = 10;
+  ctx.font = '900 38px system-ui, sans-serif';
+  ctx.shadowColor = 'rgba(0,0,0,0.6)';
+  ctx.shadowBlur = 12;
   ctx.fillText('¡CASI! Seguí intentando', stage.w / 2, stage.h / 2);
   ctx.shadowBlur = 0;
   ctx.globalAlpha = 1;
