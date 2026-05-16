@@ -62,7 +62,7 @@ export async function signInWithGoogle(demoName) {
   }
   await client.auth.signInWithOAuth({
     provider: 'google',
-    options: { redirectTo: window.location.origin },
+    options: { redirectTo: window.location.origin + import.meta.env.BASE_URL },
   });
   // OAuth redirige; al volver, initAuth() retoma la sesion.
   return null;
