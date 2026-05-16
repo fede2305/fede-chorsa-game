@@ -263,7 +263,11 @@ function openAdminPanel(root, { go, state }) {
         resetBtn.onclick = () => requireAdmin(async () => {
           if (!confirm(`¿Borrar puntajes de ${r.name}?`)) { rebuild(); return; }
           await adminResetPlayer(r.id);
-          if (r.id === state.user.id) state.scores = {};
+          if (r.id === state.user.id) {
+            state.scores = {};
+            state.completedEtapas = [];
+            localStorage.setItem('fc_completed', JSON.stringify([]));
+          }
           rebuild();
         });
         row.appendChild(resetBtn);
