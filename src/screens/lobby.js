@@ -62,8 +62,12 @@ function _renderLobby(root, { go, state }) {
   for (let e = 1; e <= totalEtapas(); e++) {
     const unlocked = isEtapaUnlocked(e);
     const completed = state.completedEtapas.includes(e);
-    const games = slotsForEtapa(e).length;
+    const slotList = slotsForEtapa(e);
+    const games = slotList.length;
     const escore = etapaScore(state.scores, e);
+    const nDone = slotList.filter((sl) => sl.slot in state.scores).length;
+    const partial = unlocked && !completed && nDone > 0;
+
     const card = document.createElement('div');
     card.className = 'etapa-card' + (unlocked && !completed ? '' : ' locked');
     card.innerHTML = `
@@ -74,11 +78,11 @@ function _renderLobby(root, { go, state }) {
           completed
             ? 'Ya jugaste — intentos agotados'
             : unlocked
-            ? `${games} minijuegos`
+            ? (partial ? `En progreso — ${nDone}/${games} jugados` : `${games} minijuegos`)
             : `Se abre ${unlockLabel(e)}`
         }</div>
       </div>
-      <div class="pts">${escore || (completed ? '✓' : '')}</div>
+      <div class="pts">${escore || (completed ? '✓' : '') || (partial ? '…' : '')}</div>
     `;
     if (unlocked && !completed) {
       card.style.cursor = 'pointer';

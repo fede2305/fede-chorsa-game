@@ -6,6 +6,7 @@
 import { makeGame, clamp, rand } from './base.js';
 import { drawCar, roundRect } from '../engine/sprites.js';
 import { driftOffset } from '../engine/effects.js';
+import { sfx } from '../engine/audio.js';
 
 export function createParking(chorsaLevel) {
   return makeGame(chorsaLevel, {
@@ -29,6 +30,7 @@ export function createParking(chorsaLevel) {
       };
       g.hud.hint = 'Manti apretado izquierda o derecha para doblar. Metete en el recuadro amarillo.';
       g.hud.label = 'Meti el auto en el recuadro';
+      g.graceScore = 10;
     },
 
     step(dt, stage, t, g) {
@@ -70,6 +72,7 @@ export function createParking(chorsaLevel) {
         g.score = Math.round(g.timeLeft * 12) + 60;
         g.parked = true;
         g.done = true;
+        sfx('park');
         return;
       }
 

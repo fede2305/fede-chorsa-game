@@ -5,6 +5,7 @@
 import { makeGame, clamp, lerp, drawRoad, rampFactor } from './base.js';
 import { drawCar } from '../engine/sprites.js';
 import { driftOffset } from '../engine/effects.js';
+import { sfx } from '../engine/audio.js';
 
 const LANES = 3;
 const OBST_COLORS = ['#2d7dd2', '#22a559', '#f5b301', '#8a8f9a', '#e8e8ec', '#7b4fd8'];
@@ -42,8 +43,10 @@ export function createRunner(chorsaLevel) {
 
       // cambio de carril
       if (stage.pointer.justDown) {
+        const prevLane = g.lane;
         if (stage.pointer.x < stage.w / 2) g.lane = clamp(g.lane - 1, 0, LANES - 1);
         else g.lane = clamp(g.lane + 1, 0, LANES - 1);
+        if (g.lane !== prevLane) sfx('tap');
       }
 
       // el auto tiende al carril; la chorsa lo desvia
@@ -56,15 +59,25 @@ export function createRunner(chorsaLevel) {
       g.roadOff = (g.roadOff + speed * dt) % 64;
       g.score = Math.floor(g.dist / 7);
 
-      // spawn de trafico
+      // spawn de trafico — garantiza al menos 1 carril libre en zona de peligro
       g.spawnT += dt;
       if (g.spawnT >= spawnEvery) {
         g.spawnT = 0;
-        const lane = (Math.random() * LANES) | 0;
+        // lanes occupied by obstacles in the lower 70% of screen (reaction zone)
+        const busyLanes = new Set(
+          g.obst.filter((o) => o.y > stage.h * 0.15).map((o) => o.lane)
+        );
+        let lane;
+        if (busyLanes.size >= LANES - 1) {
+          // force a free lane so player always has an escape
+          lane = [0, 1, 2].find((l) => !busyLanes.has(l)) ?? (Math.random() * LANES) | 0;
+        } else {
+          lane = (Math.random() * LANES) | 0;
+        }
         g.obst.push({
           lane,
           x: laneX(stage, lane),
-          y: -g.carH,
+          y: -g.carH * 1.5, // spawn further off-screen for more warning time
           color: OBST_COLORS[(Math.random() * OBST_COLORS.length) | 0],
         });
       }
@@ -75,6 +88,7 @@ export function createRunner(chorsaLevel) {
         const dx = Math.abs(o.x - g.carX);
         const dy = Math.abs(o.y - g.carY);
         if (dx < g.carW * 0.82 && dy < g.carH * 0.82) {
+          sfx('crash');
           g.done = true;
           return;
         }
@@ -84,6 +98,29 @@ export function createRunner(chorsaLevel) {
 
     render(stage, ctx, t, g) {
       drawRoad(ctx, stage.w, stage.h, g.roadOff, LANES);
+
+      // Lane warning triangles at top — show when an obstacle is off-screen above
+      const offscreenByLane = new Map();
+      for (const o of g.obst) {
+        if (o.y < 0) {
+          offscreenByLane.set(o.lane, Math.min(offscreenByLane.get(o.lane) ?? Infinity, o.y));
+        }
+      }
+      for (const [lane, y] of offscreenByLane) {
+        const wx = laneX(stage, lane);
+        const alpha = Math.min(1, (-y / (g.carH * 1.5)));
+        ctx.save();
+        ctx.globalAlpha = alpha * 0.85;
+        ctx.fillStyle = '#f5b301';
+        ctx.beginPath();
+        ctx.moveTo(wx, 16);
+        ctx.lineTo(wx - 11, 36);
+        ctx.lineTo(wx + 11, 36);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      }
+
       for (const o of g.obst) {
         drawCar(ctx, o.x, o.y, g.carW, g.carH, o.color);
       }

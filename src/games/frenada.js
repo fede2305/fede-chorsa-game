@@ -4,7 +4,8 @@
 // velocidad.
 
 import { makeGame, rand, clamp, drawRoad } from './base.js';
-import { drawCar } from '../engine/sprites.js';
+import { drawCar, drawCone } from '../engine/sprites.js';
+import { sfx } from '../engine/audio.js';
 
 const ROUNDS = 5;
 
@@ -17,8 +18,10 @@ export function createFrenada(chorsaLevel) {
       g.carW = stage.w * 0.17;
       g.carH = g.carW * 1.85;
       g.hud.hint = 'El Corsa va a fondo. Tocá para frenar lo más cerca posible del auto de adelante — sin chocarlo.';
-      g.v0 = stage.h * 0.55 * chorsa.speedMult;
+      // Cap speed so full-chorsa is hard but not impossible
+      g.v0 = Math.min(stage.h * 0.88, stage.h * 0.48 * chorsa.speedMult);
       g.decel = stage.h * 1.05;
+      g.graceScore = 20;
       startRound(stage, g);
     },
 
@@ -32,19 +35,26 @@ export function createFrenada(chorsaLevel) {
         return;
       }
 
-      if (stage.pointer.justDown) g.braking = true;
+      if (stage.pointer.justDown) {
+        if (!g.braking) sfx('brake');
+        g.braking = true;
+      }
       if (g.braking) g.v = Math.max(0, g.v - g.decel * dt);
 
       g.carPos += g.v * dt;
       g.roadOff = (g.roadOff + g.v * dt) % 64;
 
-      const gap = g.dist - g.carPos; // px que faltan al obstaculo
-      if (gap <= g.carH * 0.5) {
+      // Correct hitbox: crash when front of Corsa reaches rear of obstacle
+      // Both cars drawn at their center; combined half-heights = carH * 1.025
+      const gap = g.dist - g.carPos;
+      if (gap <= g.carH * 1.0) {
+        sfx('crash');
         finishRound(stage, g, 0, true);
         return;
       }
       if (g.braking && g.v <= 0) {
         const pts = clamp(Math.round(240 - (gap / stage.h) * 480), 0, 240);
+        if (pts > 0) sfx('score');
         finishRound(stage, g, pts, false);
       }
     },
@@ -54,8 +64,35 @@ export function createFrenada(chorsaLevel) {
       const h = stage.h;
       drawRoad(ctx, w, h, g.roadOff, 3);
 
-      // obstaculo (auto parado adelante) - se ve venir desde el inicio
-      const obstY = g.carY - (g.dist - g.carPos);
+      const gap = g.dist - g.carPos;
+
+      // ── BRAKING CONES ─────────────────────────────────────────────────────
+      // Two sets of cones at fixed world distances before the obstacle.
+      // They give the player a visual cue for when to brake.
+      const coneGaps = [g.carH * 3.2, g.carH * 1.9];
+      const coneColors = ['rgba(255,255,255,0.55)', 'rgba(255,255,255,0.75)'];
+      for (let ci = 0; ci < coneGaps.length; ci++) {
+        const coneScreenY = g.carY - (g.dist - g.carPos - coneGaps[ci]);
+        if (coneScreenY > -30 && coneScreenY < h + 30) {
+          const cs = w * 0.038;
+          drawCone(ctx, w * 0.115, coneScreenY, cs);
+          drawCone(ctx, w * 0.885, coneScreenY, cs);
+          // dashed line across road at this marker
+          ctx.save();
+          ctx.strokeStyle = coneColors[ci];
+          ctx.lineWidth = 1.5;
+          ctx.setLineDash([8, 7]);
+          ctx.beginPath();
+          ctx.moveTo(w * 0.13, coneScreenY);
+          ctx.lineTo(w * 0.87, coneScreenY);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.restore();
+        }
+      }
+
+      // obstaculo (auto parado adelante)
+      const obstY = g.carY - gap;
       drawCar(ctx, g.carX, obstY, g.carW * 1.05, g.carH, '#6a6d78');
 
       // el Corsa
@@ -65,7 +102,7 @@ export function createFrenada(chorsaLevel) {
       if (g.locked) {
         ctx.font = '900 30px system-ui, sans-serif';
         ctx.fillStyle = g.crashed ? '#e23b2e' : '#22a559';
-        ctx.fillText(g.crashed ? 'CHOCASTE' : `+${g.lastPts}`, w / 2, h * 0.5);
+        ctx.fillText(g.crashed ? '¡CHOCASTE!' : `+${g.lastPts}`, w / 2, h * 0.5);
       } else {
         ctx.font = '900 26px system-ui, sans-serif';
         ctx.fillStyle = g.braking ? '#f5b301' : '#fff';
@@ -89,8 +126,7 @@ function startRound(stage, g) {
   g.crashed = false;
   g.lastPts = 0;
   g.roadOff = 0;
-  // distancia al obstaculo: lejos para dar tiempo de calcular la frenada
-  g.dist = rand(stage.h * 0.95, stage.h * 1.25);
+  g.dist = rand(stage.h * 1.1, stage.h * 1.55);
 }
 
 function finishRound(stage, g, pts, crashed) {

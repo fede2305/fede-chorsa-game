@@ -1,8 +1,10 @@
 // Acelera: toca lo mas rapido posible para acelerar el Corsa.
 // Chorsa: mas friccion, la barra se va sola para atras.
+// Visual: auto mas ancho/realista, humo de escape, lineas de velocidad.
 
-import { makeGame, clamp, drawRoad } from './base.js';
+import { makeGame, clamp, rand, drawRoad } from './base.js';
 import { drawCarSide } from '../engine/sprites.js';
+import { sfx } from '../engine/audio.js';
 
 const DURATION = 7;
 
@@ -19,6 +21,13 @@ export function createAcelera(chorsaLevel) {
       g.hud.hint = 'Tocá la pantalla lo más rápido que puedas — cada toque acelera el Corsa';
       g.hud.label = 'Toca rapido!';
       g.flash = 0;
+      g.exhaust = [];
+      g.speedLines = [];
+      g.graceScore = 15;
+      // Pre-seed speed-line positions (deterministic, no flicker)
+      for (let i = 0; i < 18; i++) {
+        g.speedLines.push({ x: rand(0, stage.w), y: rand(0, stage.h), len: rand(20, 90), phase: rand(0, Math.PI * 2) });
+      }
     },
 
     step(dt, stage, t, g) {
@@ -31,12 +40,37 @@ export function createAcelera(chorsaLevel) {
       if (stage.pointer.justDown) {
         g.speed += g.tapKick;
         g.flash = 1;
+        sfx('tap');
+        // spawn exhaust puff
+        const carCX = stage.w * 0.5;
+        const carBackX = carCX - stage.w * 0.35;
+        const carCY = stage.h * 0.7;
+        for (let i = 0; i < 3; i++) {
+          g.exhaust.push({
+            x: carBackX + rand(-6, 6),
+            y: carCY + stage.h * 0.07 + rand(-4, 4),
+            vx: rand(-18, -6),
+            vy: rand(-15, 5),
+            r: rand(8, 18),
+            a: rand(0.5, 0.75),
+          });
+        }
       }
+
       g.flash = Math.max(0, g.flash - dt * 5);
       g.speed = clamp(g.speed - g.friction * dt, 0, g.maxSpeed);
       g.dist += g.speed * dt;
       g.roadOff = (g.roadOff + g.speed * dt) % 52;
       g.score = Math.floor(g.dist / 12);
+
+      // update exhaust particles
+      for (const e of g.exhaust) {
+        e.x += e.vx * dt;
+        e.y += e.vy * dt;
+        e.r += dt * 22;
+        e.a -= dt * 1.8;
+      }
+      g.exhaust = g.exhaust.filter((e) => e.a > 0);
     },
 
     render(stage, ctx, t, g) {
@@ -44,17 +78,49 @@ export function createAcelera(chorsaLevel) {
       const h = stage.h;
       drawRoad(ctx, w, h, g.roadOff, 1);
 
-      // Corsa de costado, rebota con la velocidad
-      const bounce = Math.sin(t * 22) * (g.speed / g.maxSpeed) * 6;
-      drawCarSide(ctx, w * 0.5, h * 0.62 + bounce, w * 0.5, h * 0.26, '#e23b2e');
+      const speedFrac = g.speed / g.maxSpeed;
 
-      // barra de RPM a la derecha
+      // ── SPEED LINES ───────────────────────────────────────────────────────
+      if (speedFrac > 0.2) {
+        ctx.save();
+        const alpha = speedFrac * 0.18;
+        ctx.strokeStyle = `rgba(255,255,255,${alpha})`;
+        ctx.lineWidth = 1.5;
+        for (const sl of g.speedLines) {
+          const len = sl.len * speedFrac;
+          // scroll the lines downward with road
+          const yy = ((sl.y + g.roadOff * 2.5) % h);
+          ctx.beginPath();
+          ctx.moveTo(sl.x, yy);
+          ctx.lineTo(sl.x, yy + len);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+
+      // ── EXHAUST SMOKE ─────────────────────────────────────────────────────
+      for (const e of g.exhaust) {
+        ctx.save();
+        ctx.globalAlpha = e.a * 0.6;
+        ctx.fillStyle = '#b0b0c0';
+        ctx.beginPath();
+        ctx.arc(e.x, e.y, e.r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      // ── CAR — wider, proper side proportions ──────────────────────────────
+      const bounce = Math.sin(t * 22) * speedFrac * 7;
+      // Car: w*0.7 wide × h*0.16 tall → ~2.7:1 ratio (realistic side view)
+      drawCarSide(ctx, w * 0.5, h * 0.69 + bounce, w * 0.72, h * 0.16, '#e23b2e');
+
+      // ── RPM BAR ───────────────────────────────────────────────────────────
       const barH = h * 0.5;
       const barX = w - 46;
       const barY = h * 0.25;
       ctx.fillStyle = 'rgba(0,0,0,0.5)';
       ctx.fillRect(barX, barY, 26, barH);
-      const fill = (g.speed / g.maxSpeed) * barH;
+      const fill = speedFrac * barH;
       const grd = ctx.createLinearGradient(0, barY + barH, 0, barY);
       grd.addColorStop(0, '#2ea44f');
       grd.addColorStop(0.6, '#f3c14b');
@@ -64,16 +130,22 @@ export function createAcelera(chorsaLevel) {
       ctx.strokeStyle = 'rgba(255,255,255,0.6)';
       ctx.strokeRect(barX, barY, 26, barH);
 
-      // pulso al tocar
+      // needle pulse on the bar when tapping
       if (g.flash > 0) {
-        ctx.fillStyle = `rgba(255,255,255,${g.flash * 0.15})`;
+        ctx.fillStyle = `rgba(255,255,255,${g.flash * 0.18})`;
         ctx.fillRect(0, 0, w, h);
       }
 
-      ctx.fillStyle = 'rgba(255,255,255,0.85)';
-      ctx.font = '700 16px system-ui, sans-serif';
+      // ── SPEED READOUT ─────────────────────────────────────────────────────
+      const kmh = Math.round(speedFrac * 220);
+      ctx.fillStyle = 'rgba(255,255,255,0.9)';
+      ctx.font = '900 28px system-ui, sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText('TOCA TOCA TOCA', w / 2, h * 0.86);
+      ctx.fillText(`${kmh} km/h`, w * 0.44, h * 0.86);
+
+      ctx.font = '700 14px system-ui, sans-serif';
+      ctx.fillStyle = 'rgba(255,255,255,0.6)';
+      ctx.fillText('TOCA TOCA TOCA', w * 0.44, h * 0.91);
       ctx.textAlign = 'left';
     },
   });

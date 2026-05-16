@@ -5,6 +5,7 @@
 import { makeGame, clamp, lerp, rand, drawRoad, rampFactor } from './base.js';
 import { drawCar, drawBeer, drawMate } from '../engine/sprites.js';
 import { driftOffset } from '../engine/effects.js';
+import { sfx } from '../engine/audio.js';
 
 const MAX_MISS = 3;
 
@@ -60,10 +61,12 @@ export function createBirras(chorsaLevel) {
         ) {
           it.done = true;
           it.flash = 1;
+          sfx('catch');
           g.score += it.mate ? 25 : 10;
         } else if (!it.done && it.y > stage.h + 30) {
           it.done = true;
           if (!it.mate) {
+            sfx('miss');
             g.miss++;
             g.hud.label = `Birras perdidas: ${g.miss}/${MAX_MISS}`;
             if (g.miss >= MAX_MISS) {

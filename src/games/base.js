@@ -13,6 +13,7 @@
 // tambien le llega al juego). Asi nadie pierde un intento sin haber jugado.
 
 import { getChorsa } from '../chorsa.js';
+import { sfx } from '../engine/audio.js';
 
 export function makeGame(chorsaLevel, impl) {
   const chorsa = getChorsa(chorsaLevel);
@@ -48,6 +49,7 @@ export function makeGame(chorsaLevel, impl) {
     impl.step(dt, stage, t, g);
     // Gracia por puntaje: fallaste antes de graceScore -> no cuenta, va de nuevo.
     if (g.done && g.score < g.graceScore) {
+      sfx('score'); // confirmación suave de que fue gracia, no penalidad
       g.done = false;
       g.score = 0;
       g.playT = 0;

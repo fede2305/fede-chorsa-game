@@ -3,6 +3,7 @@
 
 import { makeGame, clamp, rand } from './base.js';
 import { drawCar } from '../engine/sprites.js';
+import { sfx } from '../engine/audio.js';
 
 const ROUNDS = 6;
 const ROUND_TIME = 5;
@@ -16,6 +17,7 @@ export function createFindCorsa(chorsaLevel) {
       g.round = 0;
       g.hud.label = '';
       g.hud.hint = 'Tocá el Corsa ROJO entre todos los autos. Rápido — si tocás el equivocado perdés tiempo.';
+      g.graceScore = 10;
       startRound(stage, chorsa, g);
     },
 
@@ -54,9 +56,11 @@ export function createFindCorsa(chorsaLevel) {
           }
         }
         if (hitTarget) {
+          sfx('catch');
           g.score += Math.round(40 + g.roundTime * 30);
           nextRound(stage, chorsa, g);
         } else if (hitAny) {
+          sfx('wrong');
           g.roundTime = Math.max(0.2, g.roundTime - 1.3); // penalidad
           g.wrongFlash = 1;
         }
