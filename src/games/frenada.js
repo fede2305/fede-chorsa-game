@@ -88,8 +88,8 @@ function startRound(stage, g) {
   g.crashed = false;
   g.lastPts = 0;
   g.roadOff = 0;
-  // distancia al obstaculo: lo bastante cerca para verlo desde el arranque
-  g.dist = rand(stage.h * 0.55, stage.h * 0.78);
+  // distancia al obstaculo: lejos para dar tiempo de calcular la frenada
+  g.dist = rand(stage.h * 0.95, stage.h * 1.25);
 }
 
 function finishRound(stage, g, pts, crashed) {

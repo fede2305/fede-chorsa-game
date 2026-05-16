@@ -230,8 +230,7 @@ function openAdminPanel(root, { go, state }) {
 
     // reset my scores (requiere clave)
     card.querySelector('#reset-me').onclick = () => requireAdmin(async () => {
-      rebuild();
-      if (!confirm('¿Borrar TUS puntajes? No se puede deshacer.')) return;
+      if (!confirm('¿Borrar TUS puntajes? No se puede deshacer.')) { rebuild(); return; }
       await clearMyScores(state.user.id);
       state.scores = {};
       state.completedEtapas = [];
@@ -262,8 +261,7 @@ function openAdminPanel(root, { go, state }) {
         resetBtn.style.cssText = 'padding:4px 10px;font-size:12px';
         resetBtn.textContent = adminUnlocked ? 'Reset' : '🔒 Reset';
         resetBtn.onclick = () => requireAdmin(async () => {
-          rebuild();
-          if (!confirm(`¿Borrar puntajes de ${r.name}?`)) return;
+          if (!confirm(`¿Borrar puntajes de ${r.name}?`)) { rebuild(); return; }
           await adminResetPlayer(r.id);
           if (r.id === state.user.id) state.scores = {};
           rebuild();
@@ -277,8 +275,7 @@ function openAdminPanel(root, { go, state }) {
       resetAllBtn.style.cssText = 'width:100%;margin-top:12px;color:#e23b2e;border-color:#e23b2e';
       resetAllBtn.textContent = adminUnlocked ? 'Borrar TODOS los puntajes' : '🔒 Borrar TODOS los puntajes';
       resetAllBtn.onclick = () => requireAdmin(async () => {
-        rebuild();
-        if (!confirm('¿Borrar los puntajes de TODOS? No hay vuelta atrás.')) return;
+        if (!confirm('¿Borrar los puntajes de TODOS? No hay vuelta atrás.')) { rebuild(); return; }
         await adminResetAll();
         state.scores = {};
         state.completedEtapas = [];

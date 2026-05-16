@@ -42,9 +42,31 @@ export function renderEtapa(root, { go, state, params }) {
     wrap.innerHTML = '';
     const stage = new Stage(wrap);
     const game = meta.create(slot.chorsa);
-    return stage.run(game, slot.chorsa).then((score) => {
-      stage.destroy();
-      return score;
+
+    const exitBtn = document.createElement('button');
+    exitBtn.textContent = '✕';
+    exitBtn.style.cssText = [
+      'position:fixed', 'top:14px', 'right:14px', 'z-index:300',
+      'width:44px', 'height:44px', 'border-radius:50%',
+      'background:rgba(0,0,0,0.55)', 'color:#fff',
+      'border:2px solid rgba(255,255,255,0.35)',
+      'font-size:20px', 'font-weight:900', 'cursor:pointer',
+      'display:flex', 'align-items:center', 'justify-content:center',
+      'line-height:1', 'padding:0',
+    ].join(';');
+    document.body.appendChild(exitBtn);
+
+    return new Promise((resolve) => {
+      let settled = false;
+      const finish = (score) => {
+        if (settled) return;
+        settled = true;
+        exitBtn.remove();
+        stage.destroy();
+        resolve(score);
+      };
+      exitBtn.onclick = () => finish(Math.max(0, Math.round(game.score || 0)));
+      stage.run(game, slot.chorsa).then(finish);
     });
   }
 

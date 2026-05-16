@@ -15,18 +15,19 @@ export function createParking(chorsaLevel) {
       g.x = stage.w * 0.5;
       g.y = stage.h * 0.82;
       g.angle = 0; // 0 = mirando hacia arriba
-      g.speed = stage.h * 0.2;
-      g.steerRate = 2.3;
-      g.timeLeft = Math.max(7, 16 - chorsaLevel * 1.6);
+      g.speed = stage.h * 0.16;
+      g.steerRate = 2.0 + chorsaLevel * 0.08;
+      g.timeLeft = Math.max(9, 22 - chorsaLevel * 2.0);
 
       // recuadro objetivo, a un costado de la zona superior
       const side = Math.random() < 0.5 ? 0.22 : 0.78;
       g.box = {
         x: stage.w * side,
         y: stage.h * rand(0.2, 0.34),
-        w: g.carW * 1.7,
-        h: g.carH * 1.45,
+        w: g.carW * (2.0 - chorsaLevel * 0.06),   // box smaller at higher levels
+        h: g.carH * (1.65 - chorsaLevel * 0.05),
       };
+      g.hud.hint = 'Manti apretado izquierda o derecha para doblar. Metete en el recuadro amarillo.';
       g.hud.label = 'Meti el auto en el recuadro';
     },
 
