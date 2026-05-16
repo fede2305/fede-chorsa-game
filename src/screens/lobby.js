@@ -253,7 +253,8 @@ function openAdminPanel(root, { go, state }) {
     // reset my scores (requiere clave)
     card.querySelector('#reset-me').onclick = () => requireAdmin(async () => {
       if (!confirm('¿Borrar TUS puntajes? No se puede deshacer.')) { rebuild(); return; }
-      await clearMyScores(state.user.id);
+      const err = await clearMyScores(state.user.id);
+      if (err) { alert(`Error al borrar: ${err}\n\nVerificá que exista la RLS policy DELETE en la tabla scores.`); rebuild(); return; }
       state.scores = {};
       state.completedEtapas = [];
       localStorage.setItem('fc_completed', JSON.stringify([]));

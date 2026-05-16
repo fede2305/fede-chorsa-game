@@ -129,14 +129,15 @@ export async function submitScore(user, slot, score) {
   return best;
 }
 
-// Borra todos los puntajes del usuario actual.
+// Borra todos los puntajes del usuario actual. Retorna null si ok, string si falla.
 export async function clearMyScores(userId) {
   if (OFFLINE) {
     localStorage.removeItem(LS_SCORES);
-    return;
+    return null;
   }
   const { error } = await client.from('scores').delete().eq('user_id', userId);
-  if (error) console.warn('clearMyScores:', error.message);
+  if (error) { console.warn('clearMyScores:', error.message); return error.message; }
+  return null;
 }
 
 // Admin: borra puntajes de cualquier jugador (requiere RPC admin_reset_player en Supabase).
