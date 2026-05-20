@@ -14,8 +14,8 @@ const FASE1_MAX_SCORE = 80;
 const FASE2_MAX_SCORE = 120;
 
 // Mic volume thresholds (RMS 0–100 scale)
-const MIC_THRESHOLD = 10; // below = silence
-const MIC_FULL = 45;      // above = full blow
+const MIC_THRESHOLD = 4; // below = silence
+const MIC_FULL = 22;     // above = full blow
 
 export function createSobriedad(chorsaLevel) {
   return makeGame(chorsaLevel, {
@@ -59,7 +59,15 @@ export function createSobriedad(chorsaLevel) {
         return;
       }
 
-      navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+      // Sin procesado de audio para detectar soplido crudo; usa el mic de llamadas (bottom)
+      navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: false,
+        },
+        video: false,
+      })
         .then(stream => {
           g.micStream = stream;
           g.micState = 'granted';
@@ -84,7 +92,7 @@ export function createSobriedad(chorsaLevel) {
           const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
           const analyser = audioCtx.createAnalyser();
           analyser.fftSize = 256;
-          analyser.smoothingTimeConstant = 0.6;
+          analyser.smoothingTimeConstant = 0.25;
           audioCtx.createMediaStreamSource(g.micStream).connect(analyser);
           g.micAudioCtx = audioCtx;
           g.micAnalyser = analyser;
@@ -235,9 +243,7 @@ function runFase1(dt, stage, t, g, chorsa) {
   g.barra -= bajar * dt;
   g.barra = clamp(g.barra, 0, 100);
 
-  // valor mostrado con drift del chorsa
-  const driftVal = driftOffset(chorsa, t, 7) * 7;
-  g.displayedBarra = clamp(g.barra + driftVal, 0, 100);
+  g.displayedBarra = g.barra;
 
   // chequear zona verde
   const inZone = g.displayedBarra >= g.targetMin && g.displayedBarra <= g.targetMax;
