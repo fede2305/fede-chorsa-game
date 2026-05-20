@@ -20,6 +20,11 @@ const MIC_FULL = 22;     // above = full blow
 export function createSobriedad(chorsaLevel) {
   return makeGame(chorsaLevel, {
     setup(stage, chorsa, g) {
+      // Limpiar stream previo si el juego se reinició (grace o retry)
+      stopMic(g);
+
+      g.noShake = true; // deshabilita shake/blur/wobble de canvas.js
+
       g.fase = 1;
       g.scoreFase1 = 0;
       g.scoreFase2 = 0;
@@ -126,8 +131,10 @@ export function createSobriedad(chorsaLevel) {
       }
 
       g.score = g.scoreFase1 + g.scoreFase2;
+    },
 
-      if (g.done) stopMic(g);
+    cleanup(stage, g) {
+      stopMic(g);
     },
 
     render(stage, ctx, t, g) {

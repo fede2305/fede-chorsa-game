@@ -63,6 +63,8 @@ export function makeGame(chorsaLevel, impl) {
       g._ready = false; // se re-inicializa en el proximo frame
       g._graceFlash = 1.7;
     }
+    // Si el juego terminó de verdad (no fue grace), llamar cleanup opcional.
+    if (g.done) impl.cleanup?.(stage, g);
   };
   g.draw = (stage, ctx, t) => {
     if (!g._ready) return;

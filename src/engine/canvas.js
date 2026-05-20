@@ -97,6 +97,13 @@ export class Stage {
       ? `blur(${this.chorsa.blur}px)`
       : 'none';
 
+    // Algunos juegos piden no aplicar efectos de pantalla (shake, blur).
+    if (game.noShake) {
+      this.canvas.style.filter = 'none';
+    } else {
+      this.canvas.style.filter = this.chorsa.blur ? `blur(${this.chorsa.blur}px)` : 'none';
+    }
+
     return new Promise((resolve) => {
       let last = performance.now();
       let t = 0;
@@ -135,10 +142,10 @@ export class Stage {
         ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
         ctx.clearRect(0, 0, LOGICAL_W, LOGICAL_H);
         ctx.save();
-        this.effects.preDraw(ctx, LOGICAL_W, LOGICAL_H, t);
+        if (!game.noShake) this.effects.preDraw(ctx, LOGICAL_W, LOGICAL_H, t);
         game.draw(this, ctx, t);
         ctx.restore();
-        this.effects.postDraw(ctx, LOGICAL_W, LOGICAL_H, t);
+        if (!game.noShake) this.effects.postDraw(ctx, LOGICAL_W, LOGICAL_H, t);
 
         if (game.done) {
           resolve(Math.max(0, Math.round(game.score || 0)));
