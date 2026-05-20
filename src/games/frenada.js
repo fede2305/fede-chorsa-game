@@ -70,7 +70,7 @@ export function createFrenada(chorsaLevel) {
       const obstY = g.carY - gap;
 
       // ── BRAKING CONES — posición ideal de frenado (justo atrás del obstáculo) ──
-      const idealStopY = obstY + g.carH * 1.05;
+      const idealStopY = obstY + g.carH * 0.55;
       if (idealStopY > -30 && idealStopY < h + 30) {
         const cs = w * 0.038;
         drawCone(ctx, w * 0.115, idealStopY, cs);

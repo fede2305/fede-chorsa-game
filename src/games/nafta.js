@@ -19,6 +19,7 @@ export function createNafta(chorsaLevel) {
       g.graceScore = 15;
       g.pump = []; // animated pump particles
       g.lastPumpT = 0;
+      g.tutoFlash = 0;
       startRound(g);
     },
 
@@ -64,11 +65,19 @@ export function createNafta(chorsaLevel) {
         for (const p of g.pump) { p.x += p.vx * dt; p.y += p.vy * dt; p.a -= dt * 3; }
         g.pump = g.pump.filter((p) => p.a > 0);
         if (g.fill > 1 && stage.pointer.justUp) {
-          const dist = Math.abs(g.fill - 100);
-          const pts = Math.max(0, Math.round(100 - dist * 4));
-          if (pts > 0) sfx('score');
-          finishRound(g, pts);
+          if (g.fill < 20) {
+            // Intento no consumido — resetear y mostrar tutorial
+            g.fill = 0;
+            g.pump = [];
+            g.tutoFlash = 2.8;
+          } else {
+            const dist = Math.abs(g.fill - 100);
+            const pts = Math.max(0, Math.round(100 - dist * 4));
+            if (pts > 0) sfx('score');
+            finishRound(g, pts);
+          }
         }
+        if (g.tutoFlash > 0) g.tutoFlash -= dt;
       }
     },
 
@@ -202,6 +211,22 @@ export function createNafta(chorsaLevel) {
         ctx.shadowBlur = 8;
         ctx.fillText(g.spill ? '¡SE DERRAMÓ!' : `+${g.lastPts}`, w / 2, h * 0.9);
         ctx.shadowBlur = 0;
+      } else if (g.tutoFlash > 0) {
+        // Recordatorio prominente cuando suelta antes del 20%
+        const a = Math.min(1, g.tutoFlash / 0.4);
+        ctx.globalAlpha = a;
+        ctx.fillStyle = 'rgba(226,59,46,0.18)';
+        ctx.fillRect(0, h * 0.82, w, h * 0.18);
+        ctx.globalAlpha = 1;
+        ctx.font = '900 20px system-ui, sans-serif';
+        ctx.fillStyle = '#e23b2e';
+        ctx.shadowColor = 'rgba(0,0,0,0.7)';
+        ctx.shadowBlur = 8;
+        ctx.fillText('¡Mantené APRETADO!', w / 2, h * 0.885);
+        ctx.shadowBlur = 0;
+        ctx.font = '700 14px system-ui, sans-serif';
+        ctx.fillStyle = 'rgba(255,255,255,0.75)';
+        ctx.fillText('No sueltes hasta llegar cerca del 100%', w / 2, h * 0.93);
       } else {
         ctx.font = '800 18px system-ui, sans-serif';
         ctx.fillStyle = 'rgba(255,255,255,0.85)';
