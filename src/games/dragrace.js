@@ -21,7 +21,7 @@ export function createDragrace(chorsaLevel) {
     setup(stage, chorsa, g) {
       g.gear = 0;
       g.needle = 0.08;
-      g.needleSpeed = 0.65 + chorsaLevel * 0.18;
+      g.needleSpeed = 0.32 + chorsaLevel * 0.08;
       g.greenW = Math.max(0.10, 0.28 - chorsaLevel * 0.035);
       g.greenPos = 0.60;
       g.speed = stage.h * 0.22;
@@ -71,7 +71,7 @@ export function createDragrace(chorsaLevel) {
       if (g.timeLeft <= 0) { g.done = true; return; }
 
       // Needle rises only — no bouncing. Hits redline → auto-shift (penalty).
-      const gearSpeed = g.needleSpeed * (1 + g.gear * 0.14);
+      const gearSpeed = g.needleSpeed * (1 + g.gear * 0.10);
       const prevNeedle = g.needle;
       g.needle = Math.min(1.0, g.needle + gearSpeed * dt);
       g.flash = Math.max(0, g.flash - dt * 3);
