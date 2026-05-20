@@ -31,6 +31,7 @@ export function createSobriedad(chorsaLevel) {
       g.fase1Time = FASE1_DURATION;
       g.timeInZone = 0;
       g.lastInZone = false;
+      g.displayedBarra = 0;
 
       // Fase 2 (se inicializa al cambiar de fase)
       g.fase2Init = false;
