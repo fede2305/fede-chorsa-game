@@ -10,6 +10,7 @@ import { createSobriedad } from './sobriedad.js';
 import { createFrenada } from './frenada.js';
 import { createDragrace } from './dragrace.js';
 import { createParking } from './parking.js';
+import { createEl4 } from './el4.js';
 
 export const GAMES = {
   runner: {
@@ -69,14 +70,25 @@ export const GAMES = {
   },
   sobriedad: {
     name: 'Control de alcoholemia',
-    tip: 'Soplá el alcoholímetro y caminá la línea sin desviarte.',
+    tip: 'Soplá el micrófono y mantené la barra en zona VERDE durante 2.4 segundos.',
     tipBullets: [
-      'FASE 1: Tap-hold para soplar. Mantené la aguja en zona VERDE 2.4s',
-      'FASE 2: Arrastrá el dedo para caminar sobre la línea blanca',
-      'El chorsa te ladea solo — corregí siempre la dirección',
+      'Soplá el micrófono para subir la barra',
+      'Mantenela en la zona VERDE 2.4 segundos seguidos',
+      'Si soplás demasiado se pasa — calibrá la fuerza',
     ],
-    controlIcon: '✋ ↔',
+    controlIcon: '🎤',
     create: createSobriedad,
+  },
+  el4: {
+    name: 'Hacé el 4',
+    tip: 'Mantené el teléfono derecho para equilibrar la figura sobre un pie. Si se cae, perdés.',
+    tipBullets: [
+      'Inclinás el teléfono = la figura se inclina',
+      'El marcador verde muestra cuánto te alejás del centro',
+      'Si el equilibrio llega a 0, la figura cae',
+    ],
+    controlIcon: '📱',
+    create: createEl4,
   },
   frenada: {
     name: 'Frenada de emergencia',

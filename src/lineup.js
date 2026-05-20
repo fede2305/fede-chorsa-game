@@ -21,7 +21,7 @@ export const LINEUP = [
   { slot: 12, etapa: 4, chorsa: 4, game: 'birras' },
   // Etapa 5 - Full chorsa - chorsa 5
   { slot: 13, etapa: 5, chorsa: 5, game: 'frenada' },
-  { slot: 14, etapa: 5, chorsa: 5, game: 'dragrace' },
+  { slot: 14, etapa: 5, chorsa: 5, game: 'el4' },
   { slot: 15, etapa: 5, chorsa: 5, game: 'parking', boss: true },
 ];
 
