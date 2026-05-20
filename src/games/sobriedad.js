@@ -4,9 +4,9 @@ import { makeGame, clamp } from './base.js';
 import { roundRect } from '../engine/sprites.js';
 import { sfx } from '../engine/audio.js';
 
-const DURATION          = 7.0;
-const REQUIRED_IN_ZONE  = 2.4;
-const MAX_SCORE         = 200;
+const DURATION         = 10.0;
+const MILESTONE        = 2.4;  // primer hito visual; no termina el juego
+const SCORE_PER_SEC    = 22;   // puntos por segundo en zona verde (máx teórico: 220)
 
 const MIC_THRESHOLD = 4;
 const MIC_FULL      = 22;
@@ -25,9 +25,10 @@ export function createSobriedad(chorsaLevel) {
       g.fase1Time      = DURATION;
       g.timeInZone     = 0;
       g.lastInZone     = false;
+      g.milestone      = false; // primer hito alcanzado
 
       g.graceScore     = 15;
-      g.hud.hint       = 'Soplá el micrófono y mantené la barra en zona VERDE';
+      g.hud.hint       = `Soplá el micrófono y mantená la barra en zona VERDE los ${DURATION}s. Más tiempo en verde = más puntos.`;
       g.hud.label      = 'Alcoholímetro';
 
       g.micState          = 'requesting';
@@ -112,16 +113,18 @@ export function createSobriedad(chorsaLevel) {
       if (inZone) {
         g.timeInZone += dt;
         if (!g.lastInZone) sfx('tick');
+        if (!g.milestone && g.timeInZone >= MILESTONE) {
+          g.milestone = true;
+          sfx('score'); // feedback del primer hito
+        }
       }
       g.lastInZone = inZone;
 
-      if (g.timeInZone >= REQUIRED_IN_ZONE) {
-        g.score = MAX_SCORE;
-        sfx('score');
-        g.done = true;
-      } else if (g.fase1Time <= 0) {
-        g.score = Math.round((g.timeInZone / REQUIRED_IN_ZONE) * MAX_SCORE);
-        sfx(g.score > 60 ? 'score' : 'wrong');
+      // Puntuación continua: acumula mientras está en verde
+      g.score = Math.round(g.timeInZone * SCORE_PER_SEC);
+
+      if (g.fase1Time <= 0) {
+        sfx(g.score > 30 ? 'score' : 'wrong');
         g.done = true;
       }
     },
@@ -317,17 +320,25 @@ function renderAlcoholimetro(stage, ctx, t, g) {
     ctx.restore(); ctx.globalAlpha=1;
   }
 
+  // Barra de progreso continua: llena al tener DURATION segundos en verde
   const pgY=h*0.875, pgW=w*0.72, pgH=18, pgX=(w-pgW)/2;
   ctx.fillStyle='rgba(255,255,255,0.10)'; roundRect(ctx,pgX,pgY,pgW,pgH,9); ctx.fill();
-  const pf=clamp(g.timeInZone/REQUIRED_IN_ZONE,0,1);
+  const pf=clamp(g.timeInZone/DURATION,0,1);
   if(pf>0){
     const pgGrad=ctx.createLinearGradient(pgX,0,pgX+pgW*pf,0);
     pgGrad.addColorStop(0,'#1a7a40'); pgGrad.addColorStop(1,'#2de07a');
     ctx.fillStyle=pgGrad; roundRect(ctx,pgX,pgY,pgW*pf,pgH,9); ctx.fill();
   }
+  // Marca del primer hito
+  const milestoneX = pgX + (MILESTONE/DURATION)*pgW;
+  ctx.strokeStyle = g.milestone ? '#f3c14b' : 'rgba(255,255,255,0.4)';
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(milestoneX, pgY-3); ctx.lineTo(milestoneX, pgY+pgH+3); ctx.stroke();
+
   ctx.fillStyle='#fff'; ctx.font='800 11px system-ui, sans-serif';
   ctx.textAlign='center'; ctx.textBaseline='middle';
-  ctx.fillText(`${g.timeInZone.toFixed(1)}s / ${REQUIRED_IN_ZONE.toFixed(1)}s en verde`, w/2, pgY+pgH/2);
+  const pts = Math.round(g.timeInZone * SCORE_PER_SEC);
+  ctx.fillText(`${g.timeInZone.toFixed(1)}s en verde  ·  ${pts} pts`, w/2, pgY+pgH/2);
 
   ctx.fillStyle = blow>0.1 ? '#2de07a' : 'rgba(255,255,255,0.65)';
   ctx.font='700 13px system-ui, sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';

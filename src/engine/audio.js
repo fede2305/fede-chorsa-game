@@ -44,11 +44,31 @@ export function sfx(name) {
     switch (name) {
       case 'tap':        osc(720, 'sine', 0.18, t, 0.07, 260); break;
       case 'crash':      nos(0.45, t, 0.35); osc(65, 'sine', 0.55, t, 0.28, 32); break;
-      case 'brake':
-        nos(0.55, t, 0.95);
-        nos(0.30, t + 0.18, 0.55);
-        osc(320, 'sawtooth', 0.18, t, 0.95, 75);
+      case 'brake': {
+        // Cubierta chirriando: ruido filtrado con pitch descendente
+        const c2 = ac();
+        const len = Math.ceil(c2.sampleRate * 1.1);
+        const buf = c2.createBuffer(1, len, c2.sampleRate);
+        const d2 = buf.getChannelData(0);
+        for (let i = 0; i < d2.length; i++) d2[i] = Math.random() * 2 - 1;
+        const src2 = c2.createBufferSource();
+        src2.buffer = buf;
+        const flt = c2.createBiquadFilter();
+        flt.type = 'bandpass';
+        flt.frequency.setValueAtTime(1800, t);
+        flt.frequency.exponentialRampToValueAtTime(400, t + 1.0);
+        flt.Q.value = 3.5;
+        const gn = c2.createGain();
+        gn.gain.setValueAtTime(0.001, t);
+        gn.gain.exponentialRampToValueAtTime(0.85, t + 0.04);
+        gn.gain.setValueAtTime(0.85, t + 0.05);
+        gn.gain.exponentialRampToValueAtTime(0.001, t + 1.05);
+        src2.connect(flt); flt.connect(gn); gn.connect(c2.destination);
+        src2.start(t); src2.stop(t + 1.15);
+        // Tono de chirrido superpuesto
+        osc(1200, 'sawtooth', 0.08, t, 0.9, 180);
         break;
+      }
       case 'shift':      osc(1100, 'square', 0.11, t, 0.05, 320); break;
       case 'shift_bad':  osc(175, 'sawtooth', 0.2, t, 0.18, 90); break;
       case 'score':

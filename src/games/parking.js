@@ -11,10 +11,12 @@ const VOLANTE_CX_F = 0.50;
 const VOLANTE_CY_F = 0.86;
 const VOLANTE_R = 64;
 const PEDAL_R = 48;
-const GAS_CX_F = 0.86;
-const GAS_CY_F = 0.88;
-const BRAKE_CX_F = 0.14;
-const BRAKE_CY_F = 0.88;
+const GAS_CX_F = 0.82;
+const GAS_CY_F = 0.87;
+const BRAKE_CX_F = 0.18;
+const BRAKE_CY_F = 0.87;
+// Umbral Y del panel de control (zonas de gas/freno/volante)
+const PANEL_Y_F = 0.74;
 const MAX_STEER_ANGLE = Math.PI * 0.85;
 const STEER_RETURN_RATE = 5;
 
@@ -147,35 +149,44 @@ export function createParking(chorsaLevel) {
       const by = stage.h * BRAKE_CY_F;
 
       // ── PROCESS FINGERS ───────────────────────────────────────────────
-      // 1) Asignar dedo al volante si ninguno está asignado y hay uno en el área
-      // 2) Detectar gas y freno como booleanos
+      // Zonas grandes: derecha = gas, izquierda = freno, centro = volante.
+      // También se chequea stage.pointer como fallback para single-touch.
       g.gas = false;
       g.brake = false;
 
-      // primero: si volante tiene dedo asignado, ¿sigue dentro del área?
       if (g.touchVolante !== null && !g.fingers.has(g.touchVolante)) {
         g.touchVolante = null;
       }
 
-      for (const [id, p] of g.fingers) {
-        // gas?
-        if (Math.hypot(p.x - gx, p.y - gy) < PEDAL_R * 1.3) {
-          g.gas = true;
+      const panelY = stage.h * PANEL_Y_F;
+      const gasX   = stage.w * 0.58; // derecha del centro = gas
+      const brakeX = stage.w * 0.42; // izquierda del centro = freno
+
+      const checkFinger = (id, p) => {
+        if (p.y > panelY) {
+          if (p.x > gasX)   g.gas   = true;
+          if (p.x < brakeX) g.brake = true;
         }
-        // brake?
-        if (Math.hypot(p.x - bx, p.y - by) < PEDAL_R * 1.3) {
-          g.brake = true;
-        }
-        // volante: si no hay asignado y dedo está en zona del volante (no en pedales)
+        // Volante: zona central del panel
         if (
           g.touchVolante === null &&
-          Math.hypot(p.x - vx, p.y - vy) < VOLANTE_R * 1.6 &&
-          Math.hypot(p.x - gx, p.y - gy) > PEDAL_R * 1.3 &&
-          Math.hypot(p.x - bx, p.y - by) > PEDAL_R * 1.3
+          p.y > panelY &&
+          p.x >= brakeX && p.x <= gasX
         ) {
           g.touchVolante = id;
           g.touchVolanteStartAngle = Math.atan2(p.y - vy, p.x - vx);
           g.touchVolanteStartSteer = g.steerAngle;
+        }
+      };
+
+      for (const [id, p] of g.fingers) checkFinger(id, p);
+
+      // Fallback: stage.pointer (un solo dedo con input lag de chorsa)
+      if (stage.pointer.down) {
+        const sp = stage.pointer;
+        if (sp.y > panelY) {
+          if (sp.x > gasX)   g.gas   = true;
+          if (sp.x < brakeX) g.brake = true;
         }
       }
 
@@ -373,9 +384,20 @@ export function createParking(chorsaLevel) {
       }
 
       // ── CONTROL PANEL DE FONDO ───────────────────────────────────────
-      const panelY = h * 0.78;
+      const panelY = h * PANEL_Y_F;
       ctx.fillStyle = 'rgba(0,0,0,0.55)';
       ctx.fillRect(0, panelY, w, h - panelY);
+
+      // Zonas de toque (visual sutil)
+      const gasX = w * 0.58, brakeX = w * 0.42;
+      if (g.gas) {
+        ctx.fillStyle = 'rgba(45,224,122,0.10)';
+        ctx.fillRect(gasX, panelY, w - gasX, h - panelY);
+      }
+      if (g.brake) {
+        ctx.fillStyle = 'rgba(226,59,46,0.10)';
+        ctx.fillRect(0, panelY, brakeX, h - panelY);
+      }
       ctx.strokeStyle = 'rgba(255,255,255,0.12)';
       ctx.lineWidth = 1.5;
       ctx.beginPath();
