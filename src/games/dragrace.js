@@ -4,7 +4,7 @@
 
 import { makeGame, clamp, rand, drawRoad } from './base.js';
 import { drawCarSide } from '../engine/sprites.js';
-import { sfx } from '../engine/audio.js';
+import { sfx, startEngine, updateEngine, shiftEngine, stopEngine } from '../engine/audio.js';
 
 const GEARS = 6;
 const TIME_CAP = 18;
@@ -20,11 +20,10 @@ export function createDragrace(chorsaLevel) {
   return makeGame(chorsaLevel, {
     setup(stage, chorsa, g) {
       g.gear = 0;
-      g.needle = 0.05;
-      g.needleDir = 1;
-      g.needleSpeed = 0.75 + chorsaLevel * 0.20;
+      g.needle = 0.08;
+      g.needleSpeed = 0.65 + chorsaLevel * 0.18;
       g.greenW = Math.max(0.10, 0.28 - chorsaLevel * 0.035);
-      g.greenPos = 0.62;
+      g.greenPos = 0.60;
       g.speed = stage.h * 0.22;
       g.boost = stage.h * 0.5;
       g.dist = 0;
@@ -34,7 +33,9 @@ export function createDragrace(chorsaLevel) {
       g.flashGood = false;
       g.smoke = [];
       g.wheelAngle = 0;
-      g.graceScore = 10;
+      g.graceScore = 25;
+      g.engine = null;
+      g.firstGearRetry = true; // first gear: one free retry if needle hits redline
       // Semáforo countdown (runs from step after _started)
       g.semLights = 0;    // how many red lights are lit (0–3)
       g.semT = 0;
@@ -58,6 +59,7 @@ export function createDragrace(chorsaLevel) {
         }
         if (g.semLights >= 3 && g.semT >= 3 * 0.65 + 0.55) {
           g.semDone = true;
+          g.engine = startEngine();
           sfx('go');
         }
         // No game logic yet — just countdown
@@ -68,16 +70,38 @@ export function createDragrace(chorsaLevel) {
       g.hud.time = g.timeLeft;
       if (g.timeLeft <= 0) { g.done = true; return; }
 
-      const gearSpeed = g.needleSpeed * (1 + g.gear * 0.12);
-      g.needle += gearSpeed * g.needleDir * dt;
-      if (g.needle > 1)      { g.needle = 1;  g.needleDir = -1; }
-      else if (g.needle < 0) { g.needle = 0;  g.needleDir =  1; }
+      // Needle rises only — no bouncing. Hits redline → auto-shift (penalty).
+      const gearSpeed = g.needleSpeed * (1 + g.gear * 0.14);
+      const prevNeedle = g.needle;
+      g.needle = Math.min(1.0, g.needle + gearSpeed * dt);
+      g.flash = Math.max(0, g.flash - dt * 3);
+
+      // Redline hit (rising edge)
+      if (prevNeedle < 1.0 && g.needle >= 1.0) {
+        if (g.gear === 0 && g.firstGearRetry) {
+          g.firstGearRetry = false;
+          g.needle = 0.08; // reset for retry
+          g.flash = 0.6; g.flashGood = false;
+          sfx('wrong');
+        } else {
+          // Auto-shift: engine limiter kicks in, lose speed
+          const sf = Math.min(1, g.speed / (stage.h * 2.5));
+          shiftEngine(g.engine, sf);
+          g.speed += g.boost * 0.12;
+          g.score += 3;
+          g.flash = 0.7; g.flashGood = false;
+          sfx('shift_bad');
+          g.needle = 0.10;
+          g.gear++;
+          g.hud.label = `Marcha ${Math.min(g.gear + 1, GEARS)}/${GEARS}`;
+          if (g.gear >= GEARS) { g.done = true; return; }
+        }
+      }
 
       g.dist += g.speed * dt;
       g.roadOff = (g.roadOff + g.speed * dt) % 52;
-      g.score = Math.floor(g.dist / 6);
-      g.flash = Math.max(0, g.flash - dt * 3);
       g.wheelAngle += (g.speed / 300) * dt * 12;
+      updateEngine(g.engine, Math.min(1, g.speed / (stage.h * 2.5)));
 
       for (const s of g.smoke) {
         s.x += (s.vx || 0) * dt;
@@ -88,11 +112,14 @@ export function createDragrace(chorsaLevel) {
       g.smoke = g.smoke.filter((s) => s.a > 0);
 
       if (stage.pointer.justDown) {
+        const sf = Math.min(1, g.speed / (stage.h * 2.5));
+        shiftEngine(g.engine, sf);
         const inGreen = g.needle >= g.greenPos && g.needle <= g.greenPos + g.greenW;
         const inYellow = !inGreen && g.needle >= g.greenPos + g.greenW && g.needle <= g.greenPos + g.greenW + 0.12;
 
         if (inGreen) {
           g.speed += g.boost;
+          g.score += 50;
           g.flash = 1;
           g.flashGood = true;
           sfx('shift');
@@ -103,15 +130,19 @@ export function createDragrace(chorsaLevel) {
           }
         } else if (inYellow) {
           g.speed += g.boost * 0.55;
+          g.score += 25;
           g.flash = 0.6;
           g.flashGood = false;
           sfx('shift');
         } else {
           g.speed += g.boost * 0.18;
+          g.score += 8;
           g.flash = 0.5;
           g.flashGood = false;
           sfx('shift_bad');
         }
+        // RPM drop on gear change
+        g.needle = Math.max(0.08, g.needle * 0.42);
         g.gear++;
         g.hud.label = `Marcha ${Math.min(g.gear + 1, GEARS)}/${GEARS}`;
         if (g.gear >= GEARS) { g.done = true; }
@@ -284,6 +315,11 @@ export function createDragrace(chorsaLevel) {
 
       ctx.textAlign = 'left';
       ctx.textBaseline = 'alphabetic';
+    },
+
+    cleanup(stage, g) {
+      stopEngine(g.engine);
+      g.engine = null;
     },
   });
 }

@@ -1,10 +1,32 @@
-// Synthetic sound effects via Web Audio API — fire-and-forget.
-// AudioContext is created lazily on first call (requires prior user gesture).
+// Sound effects via Web Audio API.
+// Real samples (engine, brake) fetched at load; decoded on first user gesture.
+// All synthetic sfx kept as fallback if samples fail to load.
 
 let _ctx = null;
 
+// Fetch raw bytes immediately — no AudioContext needed for fetch
+const _rawFetches = {
+  engine: fetch('/sfx/engine.mp3').then((r) => r.arrayBuffer()).catch(() => null),
+  brake:  fetch('/sfx/brake.mp3').then((r) => r.arrayBuffer()).catch(() => null),
+};
+const _sfxBuf = {}; // decoded AudioBuffers, populated after first ac()
+
+async function _decodeSamples() {
+  const c = _ctx;
+  for (const [name, p] of Object.entries(_rawFetches)) {
+    if (_sfxBuf[name]) continue;
+    const raw = await p;
+    if (raw) {
+      try { _sfxBuf[name] = await c.decodeAudioData(raw); } catch (_) {}
+    }
+  }
+}
+
 function ac() {
-  if (!_ctx) _ctx = new (window.AudioContext || window.webkitAudioContext)();
+  if (!_ctx) {
+    _ctx = new (window.AudioContext || window.webkitAudioContext)();
+    _decodeSamples(); // fire-and-forget; runs as soon as AudioContext exists
+  }
   if (_ctx.state === 'suspended') _ctx.resume().catch(() => {});
   return _ctx;
 }
@@ -45,28 +67,41 @@ export function sfx(name) {
       case 'tap':        osc(720, 'sine', 0.18, t, 0.07, 260); break;
       case 'crash':      nos(0.45, t, 0.35); osc(65, 'sine', 0.55, t, 0.28, 32); break;
       case 'brake': {
-        // Cubierta chirriando: ruido filtrado con pitch descendente
-        const c2 = ac();
-        const len = Math.ceil(c2.sampleRate * 1.1);
-        const buf = c2.createBuffer(1, len, c2.sampleRate);
-        const d2 = buf.getChannelData(0);
-        for (let i = 0; i < d2.length; i++) d2[i] = Math.random() * 2 - 1;
-        const src2 = c2.createBufferSource();
-        src2.buffer = buf;
-        const flt = c2.createBiquadFilter();
-        flt.type = 'bandpass';
-        flt.frequency.setValueAtTime(1800, t);
-        flt.frequency.exponentialRampToValueAtTime(400, t + 1.0);
-        flt.Q.value = 3.5;
-        const gn = c2.createGain();
-        gn.gain.setValueAtTime(0.001, t);
-        gn.gain.exponentialRampToValueAtTime(0.85, t + 0.04);
-        gn.gain.setValueAtTime(0.85, t + 0.05);
-        gn.gain.exponentialRampToValueAtTime(0.001, t + 1.05);
-        src2.connect(flt); flt.connect(gn); gn.connect(c2.destination);
-        src2.start(t); src2.stop(t + 1.15);
-        // Tono de chirrido superpuesto
-        osc(1200, 'sawtooth', 0.08, t, 0.9, 180);
+        if (_sfxBuf.brake) {
+          const c2 = ac();
+          const src2 = c2.createBufferSource();
+          src2.buffer = _sfxBuf.brake;
+          const gn = c2.createGain();
+          gn.gain.setValueAtTime(0.001, t);
+          gn.gain.exponentialRampToValueAtTime(0.9, t + 0.06);
+          gn.gain.setValueAtTime(0.9, t + 0.4);
+          gn.gain.exponentialRampToValueAtTime(0.001, t + 1.4);
+          src2.connect(gn); gn.connect(c2.destination);
+          src2.start(t);
+          src2.stop(t + 1.5);
+        } else {
+          // synthetic fallback
+          const c2 = ac();
+          const len = Math.ceil(c2.sampleRate * 1.1);
+          const buf = c2.createBuffer(1, len, c2.sampleRate);
+          const d2 = buf.getChannelData(0);
+          for (let i = 0; i < d2.length; i++) d2[i] = Math.random() * 2 - 1;
+          const src2 = c2.createBufferSource();
+          src2.buffer = buf;
+          const flt = c2.createBiquadFilter();
+          flt.type = 'bandpass';
+          flt.frequency.setValueAtTime(1800, t);
+          flt.frequency.exponentialRampToValueAtTime(400, t + 1.0);
+          flt.Q.value = 3.5;
+          const gn = c2.createGain();
+          gn.gain.setValueAtTime(0.001, t);
+          gn.gain.exponentialRampToValueAtTime(0.85, t + 0.04);
+          gn.gain.setValueAtTime(0.85, t + 0.05);
+          gn.gain.exponentialRampToValueAtTime(0.001, t + 1.05);
+          src2.connect(flt); flt.connect(gn); gn.connect(c2.destination);
+          src2.start(t); src2.stop(t + 1.15);
+          osc(1200, 'sawtooth', 0.08, t, 0.9, 180);
+        }
         break;
       }
       case 'shift':      osc(1100, 'square', 0.11, t, 0.05, 320); break;
@@ -133,20 +168,17 @@ function _pump() {
   _musicTid = setTimeout(_pump, 110);
 }
 
-// ── MOTOR CONTINUO (para Acelera) ────────────────────────────────────────────
+// ── MOTOR CONTINUO ────────────────────────────────────────────────────────────
 
-export function startEngine() {
+function _startEngineSynth() {
   try {
     const c = ac();
-    // Fundamental sawtooth
     const osc1 = c.createOscillator();
     osc1.type = 'sawtooth';
     osc1.frequency.value = 85;
-    // Bajo (octava abajo)
     const osc2 = c.createOscillator();
     osc2.type = 'sine';
     osc2.frequency.value = 42;
-    // Distorsión ligera
     const ws = c.createWaveShaper();
     const curve = new Float32Array(256);
     for (let i = 0; i < 256; i++) {
@@ -160,30 +192,59 @@ export function startEngine() {
     osc2.connect(gn);
     gn.connect(c.destination);
     osc1.start(); osc2.start();
-    return { osc1, osc2, gn, c };
+    return { osc1, osc2, gn, c, real: false };
+  } catch (_) { return null; }
+}
+
+export function startEngine() {
+  try {
+    if (!_sfxBuf.engine) return _startEngineSynth();
+    const c = ac();
+    const src = c.createBufferSource();
+    src.buffer = _sfxBuf.engine;
+    src.loop = true;
+    src.playbackRate.value = 0.35;
+    const gn = c.createGain();
+    gn.gain.value = 0.001;
+    src.connect(gn);
+    gn.connect(c.destination);
+    src.start();
+    return { src, gn, c, real: true };
   } catch (_) { return null; }
 }
 
 export function updateEngine(eng, speedFrac) {
   if (!eng) return;
   const t = eng.c.currentTime;
-  const freq = 85 + speedFrac * 290;
-  eng.osc1.frequency.setTargetAtTime(freq, t, 0.06);
-  eng.osc2.frequency.setTargetAtTime(freq * 0.5, t, 0.06);
-  eng.gn.gain.setTargetAtTime(speedFrac > 0.02 ? 0.10 : 0.001, t, 0.12);
+  if (eng.real) {
+    const rate = 0.35 + speedFrac * 1.5;
+    eng.src.playbackRate.setTargetAtTime(rate, t, 0.08);
+    eng.gn.gain.setTargetAtTime(speedFrac > 0.02 ? 0.65 : 0.001, t, 0.12);
+  } else {
+    const freq = 85 + speedFrac * 290;
+    eng.osc1.frequency.setTargetAtTime(freq, t, 0.06);
+    eng.osc2.frequency.setTargetAtTime(freq * 0.5, t, 0.06);
+    eng.gn.gain.setTargetAtTime(speedFrac > 0.02 ? 0.10 : 0.001, t, 0.12);
+  }
 }
 
 export function shiftEngine(eng, speedFrac) {
   if (!eng) return;
   const t = eng.c.currentTime;
-  const curFreq = 85 + speedFrac * 290;
-  // Caída de RPM al cambiar marcha, luego sube
-  eng.osc1.frequency.cancelScheduledValues(t);
-  eng.osc1.frequency.setValueAtTime(curFreq * 0.58, t);
-  eng.osc1.frequency.exponentialRampToValueAtTime(curFreq * 1.08, t + 0.32);
-  eng.osc2.frequency.cancelScheduledValues(t);
-  eng.osc2.frequency.setValueAtTime(curFreq * 0.29, t);
-  eng.osc2.frequency.exponentialRampToValueAtTime(curFreq * 0.54, t + 0.32);
+  if (eng.real) {
+    const curRate = 0.35 + speedFrac * 1.5;
+    eng.src.playbackRate.cancelScheduledValues(t);
+    eng.src.playbackRate.setValueAtTime(curRate * 0.52, t);
+    eng.src.playbackRate.linearRampToValueAtTime(curRate * 1.06, t + 0.38);
+  } else {
+    const curFreq = 85 + speedFrac * 290;
+    eng.osc1.frequency.cancelScheduledValues(t);
+    eng.osc1.frequency.setValueAtTime(curFreq * 0.58, t);
+    eng.osc1.frequency.exponentialRampToValueAtTime(curFreq * 1.08, t + 0.32);
+    eng.osc2.frequency.cancelScheduledValues(t);
+    eng.osc2.frequency.setValueAtTime(curFreq * 0.29, t);
+    eng.osc2.frequency.exponentialRampToValueAtTime(curFreq * 0.54, t + 0.32);
+  }
 }
 
 export function stopEngine(eng) {
@@ -191,7 +252,12 @@ export function stopEngine(eng) {
   try {
     const t = eng.c.currentTime;
     eng.gn.gain.setTargetAtTime(0.001, t, 0.18);
-    setTimeout(() => { try { eng.osc1.stop(); eng.osc2.stop(); } catch (_) {} }, 500);
+    setTimeout(() => {
+      try {
+        if (eng.real) eng.src.stop();
+        else { eng.osc1.stop(); eng.osc2.stop(); }
+      } catch (_) {}
+    }, 500);
   } catch (_) {}
 }
 
