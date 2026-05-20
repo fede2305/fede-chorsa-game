@@ -277,147 +277,286 @@ function runFase1(dt, stage, t, g, chorsa) {
 function renderFase1(stage, ctx, t, g) {
   const w = stage.w, h = stage.h;
 
-  // fondo: comisaría
+  // Fondo comisaría
   const bg = ctx.createLinearGradient(0, 0, 0, h);
   bg.addColorStop(0, '#1a2a3e');
   bg.addColorStop(1, '#0d1828');
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, w, h);
 
-  // luces patrullero arriba
+  // Luces patrullero
   const flash = Math.sin(t * 4) > 0 ? '#3a7df0' : '#e23b2e';
   ctx.fillStyle = flash;
   ctx.globalAlpha = 0.18;
-  ctx.fillRect(0, 0, w, h * 0.12);
+  ctx.fillRect(0, 0, w, h * 0.10);
   ctx.globalAlpha = 1;
 
+  // Título
   ctx.fillStyle = '#fff';
-  ctx.font = '900 22px system-ui, sans-serif';
+  ctx.font = '900 20px system-ui, sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText('CONTROL DE ALCOHOLEMIA', w / 2, h * 0.18);
+  ctx.fillText('CONTROL DE ALCOHOLEMIA', w / 2, h * 0.13);
   ctx.fillStyle = '#f3c14b';
-  ctx.font = '700 14px system-ui, sans-serif';
-  ctx.fillText('Mantené la aguja en VERDE', w / 2, h * 0.22);
+  ctx.font = '700 13px system-ui, sans-serif';
+  ctx.fillText('Soplá hasta la zona VERDE', w / 2, h * 0.17);
 
-  // ── ALCOHOLÍMETRO ──────────────────────────────────────────
-  const meterX = w * 0.5;
-  const meterY = h * 0.55;
-  const meterW = w * 0.30;
-  const meterH = h * 0.46;
+  const inZone = g.displayedBarra >= g.targetMin && g.displayedBarra <= g.targetMax;
+  const tooHigh = g.displayedBarra > g.targetMax;
+  const blow = g.micFallback
+    ? (stage.pointer.down ? 1 : 0)
+    : clamp((g.micVolume - MIC_THRESHOLD) / (MIC_FULL - MIC_THRESHOLD), 0, 1);
 
-  ctx.fillStyle = '#16161e';
-  roundRect(ctx, meterX - meterW / 2 - 18, meterY - meterH / 2 - 28, meterW + 36, meterH + 56, 16);
+  // ── CUERPO DEL ALCOHOLÍMETRO ───────────────────────────────────────
+  const devW = 220;
+  const devH = 270;
+  const devX = (w - devW) / 2;
+  const devY = h * 0.21;
+
+  // Sombra del dispositivo
+  ctx.fillStyle = 'rgba(0,0,0,0.45)';
+  roundRect(ctx, devX + 7, devY + 9, devW, devH, 20);
   ctx.fill();
-  ctx.strokeStyle = '#3a3a48';
+
+  // Cuerpo principal
+  const devGrad = ctx.createLinearGradient(devX, devY, devX + devW, devY + devH);
+  devGrad.addColorStop(0, '#2e3244');
+  devGrad.addColorStop(0.5, '#232535');
+  devGrad.addColorStop(1, '#181925');
+  ctx.fillStyle = devGrad;
+  roundRect(ctx, devX, devY, devW, devH, 20);
+  ctx.fill();
+  ctx.strokeStyle = '#4a4c60';
   ctx.lineWidth = 2;
   ctx.stroke();
 
-  ctx.fillStyle = '#0a1a14';
-  roundRect(ctx, meterX - meterW / 2, meterY - meterH / 2, meterW, meterH, 8);
+  // Reflejo superior (brillo)
+  const shineGrad = ctx.createLinearGradient(devX, devY, devX, devY + 50);
+  shineGrad.addColorStop(0, 'rgba(255,255,255,0.12)');
+  shineGrad.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = shineGrad;
+  roundRect(ctx, devX + 4, devY + 4, devW - 8, 50, 16);
   ctx.fill();
 
-  ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+  // Etiqueta "POLICÍA FEDERAL"
+  ctx.fillStyle = '#f3c14b';
+  ctx.font = '700 9px system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('POLICÍA FEDERAL  ·  ALCO-TEST 3000', w / 2, devY + 18);
+
+  // ── PANTALLA LCD ───────────────────────────────────────────────────
+  const lcdX = devX + 16;
+  const lcdY = devY + 32;
+  const lcdW = devW - 32;
+  const lcdH = 168;
+
+  // Brillo de zona verde en LCD
+  if (inZone) {
+    ctx.fillStyle = 'rgba(45,224,122,0.10)';
+    roundRect(ctx, lcdX - 4, lcdY - 4, lcdW + 8, lcdH + 8, 10);
+    ctx.fill();
+  }
+
+  // Fondo LCD
+  ctx.fillStyle = '#05100a';
+  roundRect(ctx, lcdX, lcdY, lcdW, lcdH, 8);
+  ctx.fill();
+  ctx.strokeStyle = '#1e3a28';
   ctx.lineWidth = 1.5;
-  for (let i = 0; i <= 10; i++) {
-    const ly = meterY + meterH / 2 - (i / 10) * meterH;
-    const lw = i % 5 === 0 ? meterW * 0.32 : meterW * 0.16;
+  ctx.stroke();
+
+  // ── Barra horizontal de nivel ──────────────────────────────────────
+  const barX = lcdX + 10;
+  const barY = lcdY + 14;
+  const barW = lcdW - 20;
+  const barH = 28;
+
+  // Fondo barra
+  ctx.fillStyle = 'rgba(255,255,255,0.05)';
+  roundRect(ctx, barX, barY, barW, barH, 5);
+  ctx.fill();
+
+  // Zona verde
+  const zoneStartX = barX + (g.targetMin / 100) * barW;
+  const zoneEndX   = barX + (g.targetMax / 100) * barW;
+  const zoneW = zoneEndX - zoneStartX;
+  ctx.fillStyle = 'rgba(45,224,122,0.20)';
+  ctx.fillRect(zoneStartX, barY, zoneW, barH);
+  ctx.strokeStyle = '#2de07a';
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([5, 3]);
+  ctx.strokeRect(zoneStartX, barY, zoneW, barH);
+  ctx.setLineDash([]);
+
+  // Ticks de zona
+  ctx.fillStyle = '#2de07a';
+  ctx.font = '700 8px system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  ctx.fillText('VERDE', zoneStartX + zoneW / 2, barY + barH + 3);
+
+  // Relleno de la barra (fill actual)
+  const fillW = (g.displayedBarra / 100) * barW;
+  if (fillW > 2) {
+    const barColor = inZone ? '#2de07a' : tooHigh ? '#e23b2e' : '#f3c14b';
+    const barFill = ctx.createLinearGradient(barX, 0, barX + fillW, 0);
+    barFill.addColorStop(0, 'rgba(0,0,0,0.3)');
+    barFill.addColorStop(1, barColor);
+    ctx.fillStyle = barFill;
+    roundRect(ctx, barX, barY, fillW, barH, 5);
+    ctx.fill();
+  }
+
+  // ── Lectura digital grande ─────────────────────────────────────────
+  const readingY = barY + barH + 18;
+  const readingColor = inZone ? '#2de07a' : tooHigh ? '#e23b2e' : '#c8c8d8';
+  ctx.fillStyle = readingColor;
+  ctx.font = '900 56px ui-monospace, monospace';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  ctx.fillText(g.displayedBarra.toFixed(0), w / 2, readingY);
+
+  ctx.fillStyle = 'rgba(255,255,255,0.4)';
+  ctx.font = '700 11px system-ui, sans-serif';
+  ctx.fillText('mg/L', w / 2, readingY + 58);
+
+  // Estado
+  ctx.font = '700 11px system-ui, sans-serif';
+  ctx.fillStyle = inZone ? '#2de07a' : tooHigh ? '#e23b2e' : '#f3c14b';
+  ctx.fillText(
+    inZone ? '✓  ZONA VÁLIDA' : tooHigh ? '▲  SOPLÁ MENOS' : '▼  SOPLÁ MÁS FUERTE',
+    w / 2, readingY + 72
+  );
+
+  // ── Botones decorativos y serial ───────────────────────────────────
+  const btnY = devY + devH - 28;
+  ['#e23b2e', '#2de07a', '#f3c14b'].forEach((c, i) => {
+    const bx = devX + 28 + i * 24;
+    ctx.fillStyle = 'rgba(0,0,0,0.4)';
+    ctx.beginPath(); ctx.arc(bx + 1, btnY + 1, 7, 0, Math.PI * 2); ctx.fill();
+    ctx.globalAlpha = 0.45;
+    ctx.fillStyle = c;
+    ctx.beginPath(); ctx.arc(bx, btnY, 7, 0, Math.PI * 2); ctx.fill();
+    ctx.globalAlpha = 1;
+  });
+  ctx.fillStyle = 'rgba(255,255,255,0.18)';
+  ctx.font = '600 7px ui-monospace, monospace';
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('SN: FC-2024-009', devX + devW - 12, btnY);
+
+  // ── TUBO / PIPETA (hacia abajo) ─────────────────────────────────────
+  const tubeW = 34;
+  const tubeH = 72;
+  const tubeX = w / 2 - tubeW / 2;
+  const tubeY = devY + devH;
+
+  // Sombra tubo
+  ctx.fillStyle = 'rgba(0,0,0,0.35)';
+  roundRect(ctx, tubeX + 4, tubeY + 4, tubeW, tubeH, 5);
+  ctx.fill();
+
+  // Cuerpo tubo
+  const tubeGrad = ctx.createLinearGradient(tubeX, 0, tubeX + tubeW, 0);
+  tubeGrad.addColorStop(0, '#2e2e3e');
+  tubeGrad.addColorStop(0.25, '#58586e');
+  tubeGrad.addColorStop(0.75, '#48485a');
+  tubeGrad.addColorStop(1, '#22222e');
+  ctx.fillStyle = tubeGrad;
+  roundRect(ctx, tubeX, tubeY, tubeW, tubeH, 5);
+  ctx.fill();
+  ctx.strokeStyle = '#5a5a70';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  // Anillos de agarre
+  ctx.strokeStyle = 'rgba(255,255,255,0.10)';
+  ctx.lineWidth = 2;
+  for (let i = 1; i < 4; i++) {
+    const ry = tubeY + (tubeH / 4) * i;
     ctx.beginPath();
-    ctx.moveTo(meterX - meterW / 2 + 6, ly);
-    ctx.lineTo(meterX - meterW / 2 + 6 + lw, ly);
+    ctx.moveTo(tubeX + 3, ry);
+    ctx.lineTo(tubeX + tubeW - 3, ry);
     ctx.stroke();
   }
 
-  // zona verde objetivo
-  const zoneTopY = meterY + meterH / 2 - (g.targetMax / 100) * meterH;
-  const zoneBotY = meterY + meterH / 2 - (g.targetMin / 100) * meterH;
-  ctx.fillStyle = 'rgba(45,224,122,0.22)';
-  ctx.fillRect(meterX - meterW / 2 + 4, zoneTopY, meterW - 8, zoneBotY - zoneTopY);
-  ctx.strokeStyle = '#2de07a';
-  ctx.lineWidth = 2;
-  ctx.setLineDash([6, 4]);
-  ctx.strokeRect(meterX - meterW / 2 + 4, zoneTopY, meterW - 8, zoneBotY - zoneTopY);
-  ctx.setLineDash([]);
+  // ── BOQUILLA / MOUTHPIECE ─────────────────────────────────────────
+  const capW = tubeW + 14;
+  const capH = 24;
+  const capX = w / 2 - capW / 2;
+  const capY = tubeY + tubeH;
 
-  // barra de presión
-  const barTopY = meterY + meterH / 2 - (g.displayedBarra / 100) * meterH;
-  const inZone = g.displayedBarra >= g.targetMin && g.displayedBarra <= g.targetMax;
-  const tooHigh = g.displayedBarra > g.targetMax;
-  const barColor = inZone ? '#2de07a' : tooHigh ? '#e23b2e' : '#f3c14b';
-  const barGrad = ctx.createLinearGradient(0, barTopY, 0, meterY + meterH / 2);
-  barGrad.addColorStop(0, barColor);
-  barGrad.addColorStop(1, '#1a1a1f');
-  ctx.fillStyle = barGrad;
-  ctx.fillRect(meterX - meterW / 2 + 8, barTopY, meterW - 16, meterY + meterH / 2 - barTopY);
+  ctx.fillStyle = '#18181e';
+  roundRect(ctx, capX, capY, capW, capH, capH / 2);
+  ctx.fill();
+  ctx.strokeStyle = '#42424e';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
 
-  ctx.fillStyle = inZone ? '#2de07a' : tooHigh ? '#e23b2e' : '#fff';
-  ctx.font = '900 28px ui-monospace, monospace';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'top';
-  ctx.fillText(g.displayedBarra.toFixed(0), meterX, meterY + meterH / 2 + 8);
-  ctx.font = '700 11px system-ui, sans-serif';
-  ctx.fillStyle = 'rgba(255,255,255,0.6)';
-  ctx.fillText('mg/L', meterX, meterY + meterH / 2 + 38);
+  // Interior boquilla
+  ctx.fillStyle = '#0a0a10';
+  const ip = 5;
+  roundRect(ctx, capX + ip, capY + ip, capW - ip * 2, capH - ip * 2, (capH - ip * 2) / 2);
+  ctx.fill();
 
-  // ── MIC LEVEL INDICATOR ────────────────────────────────────
-  if (!g.micFallback) {
-    const blow = clamp((g.micVolume - MIC_THRESHOLD) / (MIC_FULL - MIC_THRESHOLD), 0, 1);
-    const micX = meterX - meterW / 2 - 44;
-    const micH = meterH * 0.6;
-    const micY = meterY - micH / 2;
-    const micW = 14;
-
-    // fondo del indicador
-    ctx.fillStyle = 'rgba(255,255,255,0.08)';
-    roundRect(ctx, micX - micW / 2, micY, micW, micH, 4);
-    ctx.fill();
-
-    // nivel de soplido
-    const lvlH = micH * blow;
-    const lvlColor = blow > 0.8 ? '#e23b2e' : blow > 0.3 ? '#2de07a' : '#555';
-    ctx.fillStyle = lvlColor;
-    roundRect(ctx, micX - micW / 2, micY + micH - lvlH, micW, lvlH, 4);
-    ctx.fill();
-
-    // ícono mic
-    ctx.fillStyle = blow > 0.1 ? '#2de07a' : 'rgba(255,255,255,0.4)';
-    ctx.font = '16px system-ui, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('🎤', micX, micY - 14);
+  // ── ANIMACIÓN SOPLIDO (partículas subiendo por el tubo) ───────────
+  if (blow > 0.05) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(tubeX - 2, tubeY - 10, tubeW + 4, tubeH + 14);
+    ctx.clip();
+    const n = Math.ceil(blow * 6);
+    for (let i = 0; i < n; i++) {
+      const phase = ((t * 2.8 + i * 0.38) % 1);
+      const py = capY - phase * (tubeH + capH + 10);
+      const px = w / 2 + Math.sin(t * 4 + i * 2.1) * (tubeW * 0.22);
+      const pr = 2.5 + blow * 3;
+      ctx.globalAlpha = blow * (0.9 - phase) * 0.75;
+      ctx.fillStyle = inZone ? '#2de07a' : '#7ee8ff';
+      ctx.beginPath();
+      ctx.arc(px, py, pr, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+    ctx.globalAlpha = 1;
   }
 
-  // ── PROGRESO EN ZONA ────────────────────────────────────────
-  const progY = h * 0.88;
-  const progW = w * 0.7;
+  // ── BARRA DE PROGRESO (tiempo en zona verde) ───────────────────────
+  const progY = h * 0.875;
+  const progW = w * 0.72;
   const progH = 18;
-  ctx.fillStyle = 'rgba(255,255,255,0.12)';
-  roundRect(ctx, (w - progW) / 2, progY, progW, progH, 9);
+  const progX = (w - progW) / 2;
+  ctx.fillStyle = 'rgba(255,255,255,0.10)';
+  roundRect(ctx, progX, progY, progW, progH, 9);
   ctx.fill();
   const progFill = clamp(g.timeInZone / FASE1_REQUIRED_IN_ZONE, 0, 1);
-  ctx.fillStyle = '#2de07a';
-  roundRect(ctx, (w - progW) / 2, progY, progW * progFill, progH, 9);
-  ctx.fill();
+  if (progFill > 0) {
+    const pgGrad = ctx.createLinearGradient(progX, 0, progX + progW * progFill, 0);
+    pgGrad.addColorStop(0, '#1a7a40');
+    pgGrad.addColorStop(1, '#2de07a');
+    ctx.fillStyle = pgGrad;
+    roundRect(ctx, progX, progY, progW * progFill, progH, 9);
+    ctx.fill();
+  }
   ctx.fillStyle = '#fff';
-  ctx.font = '800 12px system-ui, sans-serif';
+  ctx.font = '800 11px system-ui, sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText(
     `${g.timeInZone.toFixed(1)}s / ${FASE1_REQUIRED_IN_ZONE.toFixed(1)}s en verde`,
-    w / 2,
-    progY + progH / 2
+    w / 2, progY + progH / 2
   );
 
-  // hint inferior
-  ctx.fillStyle = 'rgba(255,255,255,0.7)';
+  // Hint inferior
+  const isSoplando = blow > 0.1;
+  ctx.fillStyle = isSoplando ? '#2de07a' : 'rgba(255,255,255,0.65)';
   ctx.font = '700 13px system-ui, sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  const isSoplando = g.micFallback ? stage.pointer.down : g.micVolume > MIC_THRESHOLD;
   ctx.fillText(
-    isSoplando ? '🌬 SOPLANDO' : (g.micFallback ? 'MANTENÉ APRETADO PARA SOPLAR' : 'SOPLÁ EL MICRÓFONO'),
-    w / 2,
-    h * 0.95
+    isSoplando ? '🌬  SOPLANDO' : (g.micFallback ? 'MANTENÉ APRETADO' : 'SOPLÁ EL MICRÓFONO'),
+    w / 2, h * 0.955
   );
 }
 

@@ -97,13 +97,6 @@ export class Stage {
       ? `blur(${this.chorsa.blur}px)`
       : 'none';
 
-    // Algunos juegos piden no aplicar efectos de pantalla (shake, blur).
-    if (game.noShake) {
-      this.canvas.style.filter = 'none';
-    } else {
-      this.canvas.style.filter = this.chorsa.blur ? `blur(${this.chorsa.blur}px)` : 'none';
-    }
-
     return new Promise((resolve) => {
       let last = performance.now();
       let t = 0;
@@ -137,6 +130,10 @@ export class Stage {
         this.pointer.justUp = !sampled.down && prevDown;
 
         game.update(dt, this, t);
+
+        // Actualizar blur CSS después de update (setup puede setear game.noShake).
+        this.canvas.style.filter = (!game.noShake && this.chorsa.blur)
+          ? `blur(${this.chorsa.blur}px)` : 'none';
 
         const ctx = this.ctx;
         ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
