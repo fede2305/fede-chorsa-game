@@ -28,7 +28,7 @@ export function createParking(chorsaLevel) {
       g.carW = stage.w * 0.125;
       g.carH = g.carW * 1.7;
       g.x = stage.w * 0.5;
-      g.y = stage.h * 0.60;
+      g.y = stage.h * 0.72;
       g.angle = 0;
       g.speed = 0;
       g.steerAngle = 0;
@@ -73,8 +73,8 @@ export function createParking(chorsaLevel) {
         h: g.carH,
         color: NEIGHBOR_COLORS[1],
       });
-      // fila opuesta — 2 ó 3 autos
-      const oppositeY = g.box.y + g.carH * 2.6;
+      // fila opuesta — posición fija en el medio del campo, lejos del spawn del jugador
+      const oppositeY = stage.h * 0.42;
       const opCols = [0.20, 0.50, 0.80];
       for (let i = 0; i < opCols.length; i++) {
         if (Math.random() < 0.72) {
@@ -87,12 +87,12 @@ export function createParking(chorsaLevel) {
           });
         }
       }
-      // auto extra al costado del path del jugador (obstáculo "narrow")
+      // auto extra entre el jugador y la fila opuesta
       if (Math.random() < 0.55) {
         const exX = side < 0.5 ? stage.w * 0.78 : stage.w * 0.22;
         g.neighbors.push({
           x: exX,
-          y: stage.h * 0.42,
+          y: stage.h * 0.57,
           w: g.carW,
           h: g.carH,
           color: NEIGHBOR_COLORS[5],

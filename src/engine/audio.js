@@ -133,6 +133,68 @@ function _pump() {
   _musicTid = setTimeout(_pump, 110);
 }
 
+// ── MOTOR CONTINUO (para Acelera) ────────────────────────────────────────────
+
+export function startEngine() {
+  try {
+    const c = ac();
+    // Fundamental sawtooth
+    const osc1 = c.createOscillator();
+    osc1.type = 'sawtooth';
+    osc1.frequency.value = 85;
+    // Bajo (octava abajo)
+    const osc2 = c.createOscillator();
+    osc2.type = 'sine';
+    osc2.frequency.value = 42;
+    // Distorsión ligera
+    const ws = c.createWaveShaper();
+    const curve = new Float32Array(256);
+    for (let i = 0; i < 256; i++) {
+      const x = (i * 2) / 256 - 1;
+      curve[i] = (Math.PI + 180) * x / (Math.PI + 180 * Math.abs(x));
+    }
+    ws.curve = curve;
+    const gn = c.createGain();
+    gn.gain.value = 0.001;
+    osc1.connect(ws); ws.connect(gn);
+    osc2.connect(gn);
+    gn.connect(c.destination);
+    osc1.start(); osc2.start();
+    return { osc1, osc2, gn, c };
+  } catch (_) { return null; }
+}
+
+export function updateEngine(eng, speedFrac) {
+  if (!eng) return;
+  const t = eng.c.currentTime;
+  const freq = 85 + speedFrac * 290;
+  eng.osc1.frequency.setTargetAtTime(freq, t, 0.06);
+  eng.osc2.frequency.setTargetAtTime(freq * 0.5, t, 0.06);
+  eng.gn.gain.setTargetAtTime(speedFrac > 0.02 ? 0.10 : 0.001, t, 0.12);
+}
+
+export function shiftEngine(eng, speedFrac) {
+  if (!eng) return;
+  const t = eng.c.currentTime;
+  const curFreq = 85 + speedFrac * 290;
+  // Caída de RPM al cambiar marcha, luego sube
+  eng.osc1.frequency.cancelScheduledValues(t);
+  eng.osc1.frequency.setValueAtTime(curFreq * 0.58, t);
+  eng.osc1.frequency.exponentialRampToValueAtTime(curFreq * 1.08, t + 0.32);
+  eng.osc2.frequency.cancelScheduledValues(t);
+  eng.osc2.frequency.setValueAtTime(curFreq * 0.29, t);
+  eng.osc2.frequency.exponentialRampToValueAtTime(curFreq * 0.54, t + 0.32);
+}
+
+export function stopEngine(eng) {
+  if (!eng) return;
+  try {
+    const t = eng.c.currentTime;
+    eng.gn.gain.setTargetAtTime(0.001, t, 0.18);
+    setTimeout(() => { try { eng.osc1.stop(); eng.osc2.stop(); } catch (_) {} }, 500);
+  } catch (_) {}
+}
+
 export function startMusic() {
   if (_musicOn) return;
   _musicOn = true;

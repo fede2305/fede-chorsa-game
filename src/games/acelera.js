@@ -4,7 +4,7 @@
 
 import { makeGame, clamp, rand, drawRoad } from './base.js';
 import { drawCarSide } from '../engine/sprites.js';
-import { sfx } from '../engine/audio.js';
+import { sfx, startEngine, updateEngine, shiftEngine, stopEngine } from '../engine/audio.js';
 
 const DURATION = 7;
 
@@ -23,6 +23,7 @@ export function createAcelera(chorsaLevel) {
       g.flash = 0;
       g.exhaust = [];
       g.speedLines = [];
+      g.engine = null;
       g.graceScore = 15;
       // Pre-seed speed-line positions (deterministic, no flicker)
       for (let i = 0; i < 18; i++) {
@@ -38,6 +39,8 @@ export function createAcelera(chorsaLevel) {
         return;
       }
       if (stage.pointer.justDown) {
+        if (!g.engine) g.engine = startEngine();
+        shiftEngine(g.engine, g.speed / g.maxSpeed);
         g.speed += g.tapKick;
         g.flash = 1;
         sfx('tap');
@@ -59,6 +62,7 @@ export function createAcelera(chorsaLevel) {
 
       g.flash = Math.max(0, g.flash - dt * 5);
       g.speed = clamp(g.speed - g.friction * dt, 0, g.maxSpeed);
+      updateEngine(g.engine, g.speed / g.maxSpeed);
       g.dist += g.speed * dt;
       g.roadOff = (g.roadOff + g.speed * dt) % 52;
       g.score = Math.floor(g.dist / 12);
@@ -71,6 +75,11 @@ export function createAcelera(chorsaLevel) {
         e.a -= dt * 1.8;
       }
       g.exhaust = g.exhaust.filter((e) => e.a > 0);
+    },
+
+    cleanup(stage, g) {
+      stopEngine(g.engine);
+      g.engine = null;
     },
 
     render(stage, ctx, t, g) {

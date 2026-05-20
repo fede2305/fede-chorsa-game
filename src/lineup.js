@@ -16,13 +16,13 @@ export const LINEUP = [
   { slot: 8,  etapa: 3, chorsa: 3, game: 'dragrace' },
   { slot: 9,  etapa: 3, chorsa: 3, game: 'runner' },
   // Etapa 4 - Chorsa - chorsa 4
-  { slot: 10, etapa: 4, chorsa: 4, game: 'parking' },
+  { slot: 10, etapa: 4, chorsa: 2, game: 'parking' },
   { slot: 11, etapa: 4, chorsa: 4, game: 'sobriedad' },
   { slot: 12, etapa: 4, chorsa: 4, game: 'birras' },
   // Etapa 5 - Full chorsa - chorsa 5
   { slot: 13, etapa: 5, chorsa: 5, game: 'frenada' },
   { slot: 14, etapa: 5, chorsa: 5, game: 'el4' },
-  { slot: 15, etapa: 5, chorsa: 5, game: 'parking', boss: true },
+  { slot: 15, etapa: 5, chorsa: 3, game: 'parking', boss: true },
 ];
 
 export function slotsForEtapa(etapa) {
