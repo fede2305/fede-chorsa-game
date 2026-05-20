@@ -31,6 +31,9 @@ export function makeGame(chorsaLevel, impl) {
     _ready: false,
     _started: false,
     _graceFlash: 0,
+    // Juegos async (ej: necesitan permiso de mic) setean esto a false en setup.
+    // El juego no puede arrancar hasta que lo pongan en true.
+    _asyncReady: true,
   };
   g.update = (dt, stage, t) => {
     if (!g._ready) {
@@ -38,6 +41,10 @@ export function makeGame(chorsaLevel, impl) {
       g._ready = true;
     }
     if (g.done) return;
+    if (!g._asyncReady) {
+      impl.asyncStep?.(dt, stage, t, g);
+      return;
+    }
     if (!g._started) {
       // El primer toque SOLO arranca el juego (no cuenta como jugada).
       // Asi nadie pierde un intento sin haberse dado cuenta que empezo.
@@ -61,8 +68,13 @@ export function makeGame(chorsaLevel, impl) {
     if (!g._ready) return;
     impl.render(stage, ctx, t, g);
     drawHud(stage, ctx, t, g);
-    if (!g._started) drawStartPrompt(stage, ctx, t, g);
-    else if (g._graceFlash > 0) drawGraceFlash(stage, ctx, g);
+    if (!g._asyncReady) {
+      impl.renderPreStart?.(stage, ctx, t, g);
+    } else if (!g._started) {
+      drawStartPrompt(stage, ctx, t, g);
+    } else if (g._graceFlash > 0) {
+      drawGraceFlash(stage, ctx, g);
+    }
   };
   return g;
 }

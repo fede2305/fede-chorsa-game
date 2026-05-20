@@ -1,5 +1,5 @@
 // Control de alcoholemia: dos fases seguidas.
-// Fase 1: soplá el alcoholímetro y mantené la barra en zona verde 2.5s.
+// Fase 1: soplá el micrófono y mantené la barra en zona verde 2.5s.
 // Fase 2: caminá derecho sobre la línea blanca, sin desviarte.
 
 import { makeGame, clamp } from './base.js';
@@ -12,6 +12,10 @@ const FASE1_REQUIRED_IN_ZONE = 2.4;
 const FASE2_DURATION = 11.0;
 const FASE1_MAX_SCORE = 80;
 const FASE2_MAX_SCORE = 120;
+
+// Mic volume thresholds (RMS 0–100 scale)
+const MIC_THRESHOLD = 10; // below = silence
+const MIC_FULL = 45;      // above = full blow
 
 export function createSobriedad(chorsaLevel) {
   return makeGame(chorsaLevel, {
@@ -32,11 +36,77 @@ export function createSobriedad(chorsaLevel) {
       g.fase2Init = false;
 
       g.graceScore = 15;
-      g.hud.hint = 'Sopla el alcoholímetro hasta zona verde. Después caminá derecho sobre la línea.';
+      g.hud.hint = 'Soplá fuerte el micrófono para subir la barra. Mantené en zona verde. Después caminá derecho.';
       g.hud.label = 'Fase 1: Soplá';
+
+      // Mic state
+      g.micState = 'requesting'; // 'requesting' | 'granted' | 'denied'
+      g.micVolume = 0;
+      g.micStream = null;
+      g.micAudioCtx = null;
+      g.micAnalyser = null;
+      g.micBuffer = null;
+      g.micFallback = false;
+      g._micStreamPending = false;
+      g._asyncReady = false;
+
+      if (!navigator.mediaDevices?.getUserMedia) {
+        // No mic API: fallback a toque
+        g.micState = 'granted';
+        g.micFallback = true;
+        g._asyncReady = true;
+        return;
+      }
+
+      navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+        .then(stream => {
+          g.micStream = stream;
+          g.micState = 'granted';
+          g._micStreamPending = true;
+          g._asyncReady = true;
+        })
+        .catch(() => {
+          g.micState = 'denied';
+          // _asyncReady queda false: juego bloqueado
+        });
+    },
+
+    renderPreStart(stage, ctx, t, g) {
+      drawMicScreen(stage, ctx, t, g);
     },
 
     step(dt, stage, t, g) {
+      // Primer step tras el tap: crear AudioContext (requiere gesto de usuario)
+      if (g._micStreamPending && g.micStream) {
+        g._micStreamPending = false;
+        try {
+          const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+          const analyser = audioCtx.createAnalyser();
+          analyser.fftSize = 256;
+          analyser.smoothingTimeConstant = 0.6;
+          audioCtx.createMediaStreamSource(g.micStream).connect(analyser);
+          g.micAudioCtx = audioCtx;
+          g.micAnalyser = analyser;
+          g.micBuffer = new Uint8Array(analyser.fftSize);
+        } catch (e) {
+          g.micFallback = true;
+        }
+      }
+
+      // Resumir AudioContext si estaba suspendido (iOS)
+      if (g.micAudioCtx?.state === 'suspended') g.micAudioCtx.resume();
+
+      // Leer volumen del micrófono
+      if (g.micAnalyser && g.micBuffer) {
+        g.micAnalyser.getByteTimeDomainData(g.micBuffer);
+        let sum = 0;
+        for (let i = 0; i < g.micBuffer.length; i++) {
+          const v = (g.micBuffer[i] - 128) / 128;
+          sum += v * v;
+        }
+        g.micVolume = Math.sqrt(sum / g.micBuffer.length) * 100;
+      }
+
       const chorsa = g.chorsa;
 
       if (g.fase === 1) {
@@ -47,6 +117,8 @@ export function createSobriedad(chorsaLevel) {
       }
 
       g.score = g.scoreFase1 + g.scoreFase2;
+
+      if (g.done) stopMic(g);
     },
 
     render(stage, ctx, t, g) {
@@ -54,6 +126,89 @@ export function createSobriedad(chorsaLevel) {
       else renderFase2(stage, ctx, t, g);
     },
   });
+}
+
+function stopMic(g) {
+  if (g.micStream) {
+    g.micStream.getTracks().forEach(t => t.stop());
+    g.micStream = null;
+  }
+  if (g.micAudioCtx) {
+    g.micAudioCtx.close();
+    g.micAudioCtx = null;
+  }
+}
+
+// ============================================================
+// PANTALLA DE PERMISO DE MICRÓFONO
+// ============================================================
+
+function drawMicScreen(stage, ctx, t, g) {
+  const w = stage.w, h = stage.h;
+
+  ctx.fillStyle = 'rgba(10,11,20,0.90)';
+  ctx.fillRect(0, 0, w, h);
+
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+
+  if (g.micState === 'denied') {
+    ctx.fillStyle = '#e23b2e';
+    ctx.font = '900 46px system-ui, sans-serif';
+    ctx.fillText('🎤', w / 2, h * 0.32);
+
+    ctx.strokeStyle = '#e23b2e';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.arc(w / 2, h * 0.32, 38, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // X sobre el ícono
+    ctx.strokeStyle = '#e23b2e';
+    ctx.lineWidth = 5;
+    ctx.lineCap = 'round';
+    const cx = w / 2, cy = h * 0.32, d = 24;
+    ctx.beginPath(); ctx.moveTo(cx - d, cy - d); ctx.lineTo(cx + d, cy + d); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx + d, cy - d); ctx.lineTo(cx - d, cy + d); ctx.stroke();
+
+    ctx.fillStyle = '#fff';
+    ctx.font = '900 20px system-ui, sans-serif';
+    ctx.fillText('MICRÓFONO BLOQUEADO', w / 2, h * 0.50);
+
+    ctx.fillStyle = 'rgba(255,255,255,0.65)';
+    ctx.font = '600 14px system-ui, sans-serif';
+    ctx.fillText('Este juego requiere acceso al micrófono.', w / 2, h * 0.59);
+    ctx.fillText('Habilitalo en los permisos del navegador', w / 2, h * 0.645);
+    ctx.fillText('y recargá la página.', w / 2, h * 0.70);
+  } else {
+    // requesting
+    const pulse = 0.5 + 0.5 * Math.abs(Math.sin(t * 2.2));
+    ctx.globalAlpha = 0.7 + 0.3 * pulse;
+    ctx.fillStyle = '#f3c14b';
+    ctx.font = '46px system-ui, sans-serif';
+    ctx.fillText('🎤', w / 2, h * 0.32);
+    ctx.globalAlpha = 1;
+
+    ctx.fillStyle = '#fff';
+    ctx.font = '900 19px system-ui, sans-serif';
+    ctx.fillText('PERMISO DE MICRÓFONO', w / 2, h * 0.49);
+
+    ctx.fillStyle = 'rgba(255,255,255,0.65)';
+    ctx.font = '600 14px system-ui, sans-serif';
+    ctx.fillText('Aceptá el permiso para jugar.', w / 2, h * 0.56);
+    ctx.fillText('Vas a tener que soplar el micrófono.', w / 2, h * 0.615);
+
+    // puntos animados de espera
+    for (let i = 0; i < 3; i++) {
+      const a = (t * 3 + i * (Math.PI * 2 / 3)) % (Math.PI * 2);
+      ctx.globalAlpha = 0.35 + 0.65 * ((Math.sin(a) + 1) / 2);
+      ctx.fillStyle = '#f3c14b';
+      ctx.beginPath();
+      ctx.arc(w / 2 + (i - 1) * 22, h * 0.72, 7, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
 }
 
 // ============================================================
@@ -65,9 +220,16 @@ function runFase1(dt, stage, t, g, chorsa) {
   g.hud.time = g.fase1Time;
   g.hud.label = 'Fase 1: Soplá';
 
-  // tap-hold sube la barra; sin tap, baja
-  const subir = stage.pointer.down ? 38 : 0;
-  const bajar = stage.pointer.down ? 0 : 28;
+  // soplido desde mic (o fallback táctil)
+  let blow;
+  if (g.micFallback) {
+    blow = stage.pointer.down ? 1 : 0;
+  } else {
+    blow = clamp((g.micVolume - MIC_THRESHOLD) / (MIC_FULL - MIC_THRESHOLD), 0, 1);
+  }
+
+  const subir = blow * 48;
+  const bajar = (1 - blow) * 30;
   g.barra += subir * dt;
   g.barra -= bajar * dt;
   g.barra = clamp(g.barra, 0, 100);
@@ -101,21 +263,20 @@ function runFase1(dt, stage, t, g, chorsa) {
 function renderFase1(stage, ctx, t, g) {
   const w = stage.w, h = stage.h;
 
-  // fondo: comisaría — pared azul oscura
+  // fondo: comisaría
   const bg = ctx.createLinearGradient(0, 0, 0, h);
   bg.addColorStop(0, '#1a2a3e');
   bg.addColorStop(1, '#0d1828');
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, w, h);
 
-  // luces patrullero arriba (pulsantes)
+  // luces patrullero arriba
   const flash = Math.sin(t * 4) > 0 ? '#3a7df0' : '#e23b2e';
   ctx.fillStyle = flash;
   ctx.globalAlpha = 0.18;
   ctx.fillRect(0, 0, w, h * 0.12);
   ctx.globalAlpha = 1;
 
-  // título
   ctx.fillStyle = '#fff';
   ctx.font = '900 22px system-ui, sans-serif';
   ctx.textAlign = 'center';
@@ -125,13 +286,12 @@ function renderFase1(stage, ctx, t, g) {
   ctx.font = '700 14px system-ui, sans-serif';
   ctx.fillText('Mantené la aguja en VERDE', w / 2, h * 0.22);
 
-  // ── ALCOHOLÍMETRO (display LCD vertical) ──────────────────────────────
+  // ── ALCOHOLÍMETRO ──────────────────────────────────────────
   const meterX = w * 0.5;
   const meterY = h * 0.55;
   const meterW = w * 0.30;
   const meterH = h * 0.46;
 
-  // carcasa
   ctx.fillStyle = '#16161e';
   roundRect(ctx, meterX - meterW / 2 - 18, meterY - meterH / 2 - 28, meterW + 36, meterH + 56, 16);
   ctx.fill();
@@ -139,12 +299,10 @@ function renderFase1(stage, ctx, t, g) {
   ctx.lineWidth = 2;
   ctx.stroke();
 
-  // pantalla LCD
   ctx.fillStyle = '#0a1a14';
   roundRect(ctx, meterX - meterW / 2, meterY - meterH / 2, meterW, meterH, 8);
   ctx.fill();
 
-  // marcas escala
   ctx.strokeStyle = 'rgba(255,255,255,0.18)';
   ctx.lineWidth = 1.5;
   for (let i = 0; i <= 10; i++) {
@@ -156,7 +314,7 @@ function renderFase1(stage, ctx, t, g) {
     ctx.stroke();
   }
 
-  // zona verde objetivo (banda)
+  // zona verde objetivo
   const zoneTopY = meterY + meterH / 2 - (g.targetMax / 100) * meterH;
   const zoneBotY = meterY + meterH / 2 - (g.targetMin / 100) * meterH;
   ctx.fillStyle = 'rgba(45,224,122,0.22)';
@@ -167,7 +325,7 @@ function renderFase1(stage, ctx, t, g) {
   ctx.strokeRect(meterX - meterW / 2 + 4, zoneTopY, meterW - 8, zoneBotY - zoneTopY);
   ctx.setLineDash([]);
 
-  // barra de presión actual (con drift)
+  // barra de presión
   const barTopY = meterY + meterH / 2 - (g.displayedBarra / 100) * meterH;
   const inZone = g.displayedBarra >= g.targetMin && g.displayedBarra <= g.targetMax;
   const tooHigh = g.displayedBarra > g.targetMax;
@@ -178,7 +336,6 @@ function renderFase1(stage, ctx, t, g) {
   ctx.fillStyle = barGrad;
   ctx.fillRect(meterX - meterW / 2 + 8, barTopY, meterW - 16, meterY + meterH / 2 - barTopY);
 
-  // valor numérico digital
   ctx.fillStyle = inZone ? '#2de07a' : tooHigh ? '#e23b2e' : '#fff';
   ctx.font = '900 28px ui-monospace, monospace';
   ctx.textAlign = 'center';
@@ -188,7 +345,35 @@ function renderFase1(stage, ctx, t, g) {
   ctx.fillStyle = 'rgba(255,255,255,0.6)';
   ctx.fillText('mg/L', meterX, meterY + meterH / 2 + 38);
 
-  // ── PROGRESO EN ZONA ────────────────────────────────────────────────
+  // ── MIC LEVEL INDICATOR ────────────────────────────────────
+  if (!g.micFallback) {
+    const blow = clamp((g.micVolume - MIC_THRESHOLD) / (MIC_FULL - MIC_THRESHOLD), 0, 1);
+    const micX = meterX - meterW / 2 - 44;
+    const micH = meterH * 0.6;
+    const micY = meterY - micH / 2;
+    const micW = 14;
+
+    // fondo del indicador
+    ctx.fillStyle = 'rgba(255,255,255,0.08)';
+    roundRect(ctx, micX - micW / 2, micY, micW, micH, 4);
+    ctx.fill();
+
+    // nivel de soplido
+    const lvlH = micH * blow;
+    const lvlColor = blow > 0.8 ? '#e23b2e' : blow > 0.3 ? '#2de07a' : '#555';
+    ctx.fillStyle = lvlColor;
+    roundRect(ctx, micX - micW / 2, micY + micH - lvlH, micW, lvlH, 4);
+    ctx.fill();
+
+    // ícono mic
+    ctx.fillStyle = blow > 0.1 ? '#2de07a' : 'rgba(255,255,255,0.4)';
+    ctx.font = '16px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('🎤', micX, micY - 14);
+  }
+
+  // ── PROGRESO EN ZONA ────────────────────────────────────────
   const progY = h * 0.88;
   const progW = w * 0.7;
   const progH = 18;
@@ -209,10 +394,17 @@ function renderFase1(stage, ctx, t, g) {
     progY + progH / 2
   );
 
-  // hint
+  // hint inferior
   ctx.fillStyle = 'rgba(255,255,255,0.7)';
   ctx.font = '700 13px system-ui, sans-serif';
-  ctx.fillText(stage.pointer.down ? '🌬 SOPLANDO' : 'MANTENÉ APRETADO PARA SOPLAR', w / 2, h * 0.95);
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const isSoplando = g.micFallback ? stage.pointer.down : g.micVolume > MIC_THRESHOLD;
+  ctx.fillText(
+    isSoplando ? '🌬 SOPLANDO' : (g.micFallback ? 'MANTENÉ APRETADO PARA SOPLAR' : 'SOPLÁ EL MICRÓFONO'),
+    w / 2,
+    h * 0.95
+  );
 }
 
 // ============================================================
@@ -228,13 +420,12 @@ function initFase2(stage, g) {
   g.peatonR = stage.w * 0.045;
   g.lineScrollY = 0;
   g.lineWidth = stage.w * 0.035;
-  g.tolerance = stage.w * 0.075; // ancho de línea + margen
+  g.tolerance = stage.w * 0.075;
   g.footPhase = 0;
   g.hud.label = 'Fase 2: Caminá';
 }
 
 function lineXAtY(stage, t, screenY) {
-  // serpenteo: depende de coord absoluta (y - scroll) para que se vea fluir
   return stage.w / 2 + Math.sin(screenY * 0.011 + t * 0.55) * stage.w * 0.20;
 }
 
@@ -242,28 +433,23 @@ function runFase2(dt, stage, t, g, chorsa) {
   g.fase2Time -= dt;
   g.hud.time = g.fase2Time;
 
-  // movimiento controlado por dedo (drag horizontal)
   if (stage.pointer.down) {
     const target = stage.pointer.x;
     g.peatonX += (target - g.peatonX) * Math.min(1, dt * 8);
   }
 
-  // drift del chorsa lo ladea solo
   g.peatonX += driftOffset(chorsa, t, 11) * stage.w * 0.14 * dt;
   g.peatonX = clamp(g.peatonX, stage.w * 0.08, stage.w * 0.92);
 
-  // scroll de línea
   g.lineScrollY += stage.h * 0.18 * dt;
   g.footPhase += dt * 6;
 
-  // chequear distancia a la línea (a la altura del peatón)
   const lineAtPeaton = lineXAtY(stage, t, g.peatonY + g.lineScrollY);
   const dist = Math.abs(g.peatonX - lineAtPeaton);
   if (dist <= g.tolerance) {
     g.timeOnLine += dt;
   }
 
-  // fin de fase
   if (g.fase2Time <= 0) {
     g.scoreFase2 = Math.round((g.timeOnLine / FASE2_DURATION) * FASE2_MAX_SCORE);
     g.done = true;
@@ -274,7 +460,6 @@ function runFase2(dt, stage, t, g, chorsa) {
 function renderFase2(stage, ctx, t, g) {
   const w = stage.w, h = stage.h;
 
-  // fondo: vereda nocturna iluminada por luz amarillenta
   const bg = ctx.createLinearGradient(0, 0, 0, h);
   bg.addColorStop(0, '#3a3225');
   bg.addColorStop(0.55, '#2a241c');
@@ -282,7 +467,6 @@ function renderFase2(stage, ctx, t, g) {
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, w, h);
 
-  // textura sutil de pavimento (puntos)
   ctx.fillStyle = 'rgba(0,0,0,0.18)';
   for (let i = 0; i < 60; i++) {
     const seed = i * 137.5 + g.lineScrollY * 0.5;
@@ -291,7 +475,6 @@ function renderFase2(stage, ctx, t, g) {
     ctx.fillRect(px, py, 2, 2);
   }
 
-  // línea blanca serpenteante (se dibuja como una serie de segmentos)
   ctx.strokeStyle = '#f5f3ec';
   ctx.lineWidth = g.lineWidth;
   ctx.lineCap = 'round';
@@ -304,15 +487,12 @@ function renderFase2(stage, ctx, t, g) {
   }
   ctx.stroke();
 
-  // banda de "tolerancia" sutil
   ctx.strokeStyle = 'rgba(245,243,236,0.10)';
   ctx.lineWidth = g.tolerance * 2;
   ctx.stroke();
 
-  // peatón (vista cenital — círculo cabeza + cuerpo + pies alternando)
   drawPeaton(ctx, g.peatonX, g.peatonY, g.peatonR, g.footPhase);
 
-  // indicador rojo si está fuera de línea
   const lineAtPeaton = lineXAtY(stage, t, g.peatonY + g.lineScrollY);
   const dist = Math.abs(g.peatonX - lineAtPeaton);
   if (dist > g.tolerance) {
@@ -323,7 +503,6 @@ function renderFase2(stage, ctx, t, g) {
     ctx.stroke();
   }
 
-  // progreso "tiempo en línea"
   const progY = h * 0.06;
   const progW = w * 0.5;
   const progH = 14;
@@ -341,7 +520,6 @@ function renderFase2(stage, ctx, t, g) {
   ctx.textBaseline = 'middle';
   ctx.fillText('TIEMPO SOBRE LA LÍNEA', w / 2, progY + progH / 2);
 
-  // hint inferior
   ctx.fillStyle = 'rgba(255,255,255,0.55)';
   ctx.font = '700 12px system-ui, sans-serif';
   ctx.textAlign = 'center';
@@ -352,13 +530,11 @@ function drawPeaton(ctx, x, y, r, footPhase) {
   ctx.save();
   ctx.translate(x, y);
 
-  // sombra
   ctx.fillStyle = 'rgba(0,0,0,0.4)';
   ctx.beginPath();
   ctx.ellipse(0, r * 0.3, r * 1.1, r * 0.4, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // pies (dos elipses alternando)
   const footOffset = Math.sin(footPhase) * r * 0.4;
   ctx.fillStyle = '#1a1a22';
   ctx.beginPath();
@@ -368,7 +544,6 @@ function drawPeaton(ctx, x, y, r, footPhase) {
   ctx.ellipse(r * 0.45, -footOffset, r * 0.2, r * 0.32, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // cuerpo (camisa)
   const body = ctx.createRadialGradient(0, -r * 0.2, r * 0.2, 0, 0, r * 1.2);
   body.addColorStop(0, '#e23b2e');
   body.addColorStop(1, '#8a1d14');
@@ -377,12 +552,10 @@ function drawPeaton(ctx, x, y, r, footPhase) {
   ctx.ellipse(0, 0, r * 0.9, r * 1.05, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // cabeza
   ctx.fillStyle = '#d9b48f';
   ctx.beginPath();
   ctx.arc(0, -r * 0.35, r * 0.55, 0, Math.PI * 2);
   ctx.fill();
-  // pelo
   ctx.fillStyle = '#2a1f12';
   ctx.beginPath();
   ctx.arc(0, -r * 0.55, r * 0.5, Math.PI, 0);
