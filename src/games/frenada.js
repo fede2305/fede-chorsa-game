@@ -66,6 +66,9 @@ export function createFrenada(chorsaLevel) {
 
       const gap = g.dist - g.carPos;
 
+      // obstaculo (auto parado adelante)
+      const obstY = g.carY - gap;
+
       // ── BRAKING CONES — posición ideal de frenado (justo atrás del obstáculo) ──
       const idealStopY = obstY + g.carH * 1.05;
       if (idealStopY > -30 && idealStopY < h + 30) {
@@ -83,9 +86,6 @@ export function createFrenada(chorsaLevel) {
         ctx.setLineDash([]);
         ctx.restore();
       }
-
-      // obstaculo (auto parado adelante)
-      const obstY = g.carY - gap;
       drawCar(ctx, g.carX, obstY, g.carW * 1.05, g.carH, '#6a6d78');
 
       // el Corsa
