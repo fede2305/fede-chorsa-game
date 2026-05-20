@@ -21,6 +21,22 @@ function laneX(stage, lane) {
   return left + (span * (lane + 0.5)) / LANES;
 }
 
+// Devuelve true si spawnar en (lane, newY) crearía una ventana vertical donde
+// los 3 carriles tienen obstáculos — situación imposible de esquivar.
+function wouldBlockAll(g, stage, lane, newY) {
+  const all = [...g.obst, { lane, y: newY }].filter(
+    (o) => o.y > -g.carH * 5 && o.y < stage.h * 0.85
+  );
+  const win = g.carH * 2.5; // ventana de peligro: 2.5 alturas de auto
+  for (const ref of all) {
+    const lanesNear = new Set(
+      all.filter((o) => Math.abs(o.y - ref.y) <= win).map((o) => o.lane)
+    );
+    if (lanesNear.size >= 3) return true;
+  }
+  return false;
+}
+
 function spawnObstacle(g, stage, lane, yOffset = 0) {
   g.obst.push({
     lane,
@@ -93,12 +109,11 @@ export function createRunner(chorsaLevel) {
           if (r <= 0) { lane = i; break; }
         }
 
-        // si el carril elegido ya tiene un obstáculo visible o cerca del spawn, abortamos
         const tooCloseY = stage.h * 0.45;
         const tooClose = g.obst.some(
           (o) => o.lane === lane && o.y < tooCloseY && o.y > -g.carH * 4
         );
-        if (!tooClose) {
+        if (!tooClose && !wouldBlockAll(g, stage, lane, -g.carH * 1.5)) {
           spawnObstacle(g, stage, lane);
         }
       }
@@ -109,13 +124,13 @@ export function createRunner(chorsaLevel) {
         // El carril libre SIEMPRE es el del jugador — siempre hay escape
         const freeLane = g.lane;
         const others = [0, 1, 2].filter((l) => l !== freeLane);
-        // asegurar que ninguno tenga obstáculo muy cercano
         for (let i = 0; i < others.length; i++) {
           const l = others[i];
           const occupied = g.obst.some(
             (o) => o.lane === l && o.y < stage.h * 0.45 && o.y > -g.carH * 4
           );
-          if (!occupied) {
+          const newY = -g.carH * 1.5 - i * g.carH * 1.6;
+          if (!occupied && !wouldBlockAll(g, stage, l, newY)) {
             spawnObstacle(g, stage, l, -i * g.carH * 1.6);
           }
         }
