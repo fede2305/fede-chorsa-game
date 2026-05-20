@@ -139,7 +139,10 @@ export function createSobriedad(chorsaLevel) {
 
     render(stage, ctx, t, g) {
       if (g.fase === 1) renderFase1(stage, ctx, t, g);
-      else renderFase2(stage, ctx, t, g);
+      else {
+        if (!g.fase2Init) initFase2(stage, g);
+        renderFase2(stage, ctx, t, g);
+      }
     },
   });
 }
