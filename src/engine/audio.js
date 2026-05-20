@@ -4,10 +4,12 @@
 
 let _ctx = null;
 
-// Fetch raw bytes immediately — no AudioContext needed for fetch
+// Fetch raw bytes immediately — no AudioContext needed for fetch.
+// BASE_URL handles GitHub Pages subdirectory deployment (/fede-chorsa-game/).
+const _base = import.meta.env.BASE_URL;
 const _rawFetches = {
-  engine: fetch('/sfx/engine.mp3').then((r) => r.arrayBuffer()).catch(() => null),
-  brake:  fetch('/sfx/brake.mp3').then((r) => r.arrayBuffer()).catch(() => null),
+  engine: fetch(`${_base}sfx/engine.mp3`).then((r) => r.arrayBuffer()).catch(() => null),
+  brake:  fetch(`${_base}sfx/brake.mp3`).then((r) => r.arrayBuffer()).catch(() => null),
 };
 const _sfxBuf = {}; // decoded AudioBuffers, populated after first ac()
 
