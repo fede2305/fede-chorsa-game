@@ -44,7 +44,11 @@ export function sfx(name) {
     switch (name) {
       case 'tap':        osc(720, 'sine', 0.18, t, 0.07, 260); break;
       case 'crash':      nos(0.45, t, 0.35); osc(65, 'sine', 0.55, t, 0.28, 32); break;
-      case 'brake':      nos(0.28, t, 0.75); osc(360, 'sawtooth', 0.12, t, 0.75, 85); break;
+      case 'brake':
+        nos(0.55, t, 0.95);
+        nos(0.30, t + 0.18, 0.55);
+        osc(320, 'sawtooth', 0.18, t, 0.95, 75);
+        break;
       case 'shift':      osc(1100, 'square', 0.11, t, 0.05, 320); break;
       case 'shift_bad':  osc(175, 'sawtooth', 0.2, t, 0.18, 90); break;
       case 'score':

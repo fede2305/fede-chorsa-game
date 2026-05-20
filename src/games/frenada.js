@@ -66,29 +66,22 @@ export function createFrenada(chorsaLevel) {
 
       const gap = g.dist - g.carPos;
 
-      // ── BRAKING CONES ─────────────────────────────────────────────────────
-      // Two sets of cones at fixed world distances before the obstacle.
-      // They give the player a visual cue for when to brake.
-      const coneGaps = [g.carH * 3.2, g.carH * 1.9];
-      const coneColors = ['rgba(255,255,255,0.55)', 'rgba(255,255,255,0.75)'];
-      for (let ci = 0; ci < coneGaps.length; ci++) {
-        const coneScreenY = g.carY - (g.dist - g.carPos - coneGaps[ci]);
-        if (coneScreenY > -30 && coneScreenY < h + 30) {
-          const cs = w * 0.038;
-          drawCone(ctx, w * 0.115, coneScreenY, cs);
-          drawCone(ctx, w * 0.885, coneScreenY, cs);
-          // dashed line across road at this marker
-          ctx.save();
-          ctx.strokeStyle = coneColors[ci];
-          ctx.lineWidth = 1.5;
-          ctx.setLineDash([8, 7]);
-          ctx.beginPath();
-          ctx.moveTo(w * 0.13, coneScreenY);
-          ctx.lineTo(w * 0.87, coneScreenY);
-          ctx.stroke();
-          ctx.setLineDash([]);
-          ctx.restore();
-        }
+      // ── BRAKING CONES — posición ideal de frenado (justo atrás del obstáculo) ──
+      const idealStopY = obstY + g.carH * 1.05;
+      if (idealStopY > -30 && idealStopY < h + 30) {
+        const cs = w * 0.038;
+        drawCone(ctx, w * 0.115, idealStopY, cs);
+        drawCone(ctx, w * 0.885, idealStopY, cs);
+        ctx.save();
+        ctx.strokeStyle = 'rgba(243,193,75,0.80)';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([8, 7]);
+        ctx.beginPath();
+        ctx.moveTo(w * 0.13, idealStopY);
+        ctx.lineTo(w * 0.87, idealStopY);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.restore();
       }
 
       // obstaculo (auto parado adelante)

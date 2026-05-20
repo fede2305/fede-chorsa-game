@@ -239,11 +239,10 @@ export function createParking(chorsaLevel) {
         if (Math.abs(g.speed) < 1.5) g.speed = 0;
       }
 
-      // ── DRIFT CHORSA ─────────────────────────────────────────────────
-      g.angle += driftOffset(chorsa, t, 13) * dt * 1.4;
-
-      // ── STEERING APLICADO ────────────────────────────────────────────
+      // ── STEERING APLICADO / DRIFT ────────────────────────────────────
       const speedFrac = Math.abs(g.speed) / g.maxSpeed;
+      // Drift solo cuando el auto se mueve (evita que gire en el eje parado)
+      g.angle += driftOffset(chorsa, t, 13) * dt * 0.9 * speedFrac;
       g.angle += steer * g.maxSteerRate * speedFrac * dt;
 
       g.wheelAngle += g.speed * dt * 0.05;

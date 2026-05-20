@@ -93,8 +93,8 @@ export function createRunner(chorsaLevel) {
           if (r <= 0) { lane = i; break; }
         }
 
-        // si el carril elegido ya tiene un obstáculo demasiado cerca del spawn, abortamos
-        const tooCloseY = stage.h * 0.18;
+        // si el carril elegido ya tiene un obstáculo visible o cerca del spawn, abortamos
+        const tooCloseY = stage.h * 0.45;
         const tooClose = g.obst.some(
           (o) => o.lane === lane && o.y < tooCloseY && o.y > -g.carH * 4
         );
@@ -106,14 +106,14 @@ export function createRunner(chorsaLevel) {
       // ── RÁFAGAS ocasionales ─────────────────────────────────────────
       if (g.playT > g.nextBurst) {
         g.nextBurst = g.playT + 6 + Math.random() * 4.5;
-        // 2 obstáculos en carriles distintos, dejando uno libre
-        const freeLane = (Math.random() * LANES) | 0;
+        // El carril libre SIEMPRE es el del jugador — siempre hay escape
+        const freeLane = g.lane;
         const others = [0, 1, 2].filter((l) => l !== freeLane);
         // asegurar que ninguno tenga obstáculo muy cercano
         for (let i = 0; i < others.length; i++) {
           const l = others[i];
           const occupied = g.obst.some(
-            (o) => o.lane === l && o.y < stage.h * 0.25 && o.y > -g.carH * 4
+            (o) => o.lane === l && o.y < stage.h * 0.45 && o.y > -g.carH * 4
           );
           if (!occupied) {
             spawnObstacle(g, stage, l, -i * g.carH * 1.6);
