@@ -21,7 +21,7 @@ export function renderIntro(root, { go }) {
       <p style="margin-bottom:0">
         Cambio de auto un par de veces, pero el apodo quedo. Y cuando la
         noche avanzaba y Fede se ponia en pedo, entraba en
-        <b class="brand">"modo Chorsa"</b> (con S): todo se aceleraba,
+        <b class="brand">"modo Chorsa"</b>: todo se aceleraba,
         se mareaba, la realidad se distorsionaba.
       </p>
     </div>
