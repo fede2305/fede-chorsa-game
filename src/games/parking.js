@@ -8,15 +8,18 @@ import { driftOffset } from '../engine/effects.js';
 import { sfx } from '../engine/audio.js';
 
 const VOLANTE_CX_F = 0.50;
-const VOLANTE_CY_F = 0.86;
-const VOLANTE_R = 64;
-const PEDAL_R = 48;
-const GAS_CX_F = 0.82;
-const GAS_CY_F = 0.87;
-const BRAKE_CX_F = 0.18;
-const BRAKE_CY_F = 0.87;
-// Umbral Y del panel de control (zonas de gas/freno/volante)
-const PANEL_Y_F = 0.74;
+const VOLANTE_CY_F = 0.79;   // volante en la mitad superior del panel
+const VOLANTE_R = 56;
+const PEDAL_R = 38;
+const GAS_CX_F   = 0.84;
+const GAS_CY_F   = 0.89;
+const BRAKE_CX_F = 0.16;
+const BRAKE_CY_F = 0.89;
+const GEAR_CX_F  = 0.50;
+const GEAR_CY_F  = 0.89;
+// Panel de control arranca aquí; PEDAL_Y_F divide volante (arriba) de pedales (abajo)
+const PANEL_Y_F = 0.72;
+const PEDAL_Y_F = 0.83;
 const MAX_STEER_ANGLE = Math.PI * 0.85;
 const STEER_RETURN_RATE = 5;
 
@@ -34,7 +37,6 @@ export function createParking(chorsaLevel) {
       g.steerAngle = 0;
       g.gas = false;
       g.brake = false;
-      g.brakeHeldT = 0;
       g.reverse = false;
       g.maxSpeed = stage.h * 0.20;
       g.maxRevSpeed = stage.h * 0.11;
@@ -100,7 +102,7 @@ export function createParking(chorsaLevel) {
       }
 
       g.graceScore = 10;
-      g.hud.hint = 'Volante = arrastrá izq/der. Pedal verde acelera, rojo frena. Estacioná en el box.';
+      g.hud.hint = 'Volante = arrastrá. Verde = GAS, Rojo = FRENO, centro = R/D.';
       g.hud.label = 'D 0';
 
       // multitouch state — listeners propios sobre el canvas
@@ -108,6 +110,7 @@ export function createParking(chorsaLevel) {
       g.touchVolante = null;
       g.touchVolanteStartAngle = 0;
       g.touchVolanteStartSteer = 0;
+      g._revBtnIds = new Set(); // fingers que ya togglearon reversa (evita multi-toggle)
 
       const canvas = stage.canvas;
       const posOf = (e) => {
@@ -128,6 +131,7 @@ export function createParking(chorsaLevel) {
       g._onUp = (e) => {
         g.fingers.delete(e.pointerId);
         if (g.touchVolante === e.pointerId) g.touchVolante = null;
+        g._revBtnIds.delete(e.pointerId);
       };
       canvas.addEventListener('pointerdown', g._onDown);
       canvas.addEventListener('pointermove', g._onMove);
@@ -143,14 +147,11 @@ export function createParking(chorsaLevel) {
 
       const vx = stage.w * VOLANTE_CX_F;
       const vy = stage.h * VOLANTE_CY_F;
-      const gx = stage.w * GAS_CX_F;
-      const gy = stage.h * GAS_CY_F;
-      const bx = stage.w * BRAKE_CX_F;
-      const by = stage.h * BRAKE_CY_F;
 
       // ── PROCESS FINGERS ───────────────────────────────────────────────
-      // Zonas grandes: derecha = gas, izquierda = freno, centro = volante.
-      // También se chequea stage.pointer como fallback para single-touch.
+      // Panel dividido en dos filas:
+      //   Fila superior (panelY → pedalY): zona del volante (arrastrar)
+      //   Fila inferior (pedalY → bottom): izq=FRENO, centro=R/D, der=GAS
       g.gas = false;
       g.brake = false;
 
@@ -159,23 +160,28 @@ export function createParking(chorsaLevel) {
       }
 
       const panelY = stage.h * PANEL_Y_F;
-      const gasX   = stage.w * 0.58; // derecha del centro = gas
-      const brakeX = stage.w * 0.42; // izquierda del centro = freno
+      const pedalY = stage.h * PEDAL_Y_F;
+      const gasX   = stage.w * 0.65;
+      const brakeX = stage.w * 0.35;
 
       const checkFinger = (id, p) => {
-        if (p.y > panelY) {
+        if (p.y > pedalY) {
+          // Fila de pedales
           if (p.x > gasX)   g.gas   = true;
           if (p.x < brakeX) g.brake = true;
-        }
-        // Volante: zona central del panel
-        if (
-          g.touchVolante === null &&
-          p.y > panelY &&
-          p.x >= brakeX && p.x <= gasX
-        ) {
-          g.touchVolante = id;
-          g.touchVolanteStartAngle = Math.atan2(p.y - vy, p.x - vx);
-          g.touchVolanteStartSteer = g.steerAngle;
+          // Botón R/D: toque único por dedo (toggle al bajar)
+          if (p.x >= brakeX && p.x <= gasX && !g._revBtnIds.has(id)) {
+            g._revBtnIds.add(id);
+            g.reverse = !g.reverse;
+            sfx('shift');
+          }
+        } else if (p.y > panelY) {
+          // Fila del volante
+          if (g.touchVolante === null) {
+            g.touchVolante = id;
+            g.touchVolanteStartAngle = Math.atan2(p.y - vy, p.x - vx);
+            g.touchVolanteStartSteer = g.steerAngle;
+          }
         }
       };
 
@@ -184,7 +190,7 @@ export function createParking(chorsaLevel) {
       // Fallback: stage.pointer (un solo dedo con input lag de chorsa)
       if (stage.pointer.down) {
         const sp = stage.pointer;
-        if (sp.y > panelY) {
+        if (sp.y > pedalY) {
           if (sp.x > gasX)   g.gas   = true;
           if (sp.x < brakeX) g.brake = true;
         }
@@ -209,22 +215,7 @@ export function createParking(chorsaLevel) {
       }
       const steer = g.steerAngle / MAX_STEER_ANGLE; // normalizado -1..1
 
-      // ── FRENO + REVERSA ──────────────────────────────────────────────
-      if (g.brake) {
-        g.brakeHeldT += dt;
-        // si está casi parado y mantengo freno, activo reversa
-        if (Math.abs(g.speed) < 4 && g.brakeHeldT > 0.45 && !g.reverse) {
-          g.reverse = true;
-          sfx('shift');
-        }
-      } else {
-        g.brakeHeldT = 0;
-        // si pisás acelerador y estás en reversa con velocidad ≈ 0, sale de reversa
-        if (g.reverse && g.gas && g.speed > -2) {
-          g.reverse = false;
-          sfx('shift');
-        }
-      }
+      // Reversa se activa solo con el botón R/D del panel
 
       // ── ACELERACIÓN / FRENO / DRAG ───────────────────────────────────
       if (g.gas && !g.brake) {
@@ -253,7 +244,7 @@ export function createParking(chorsaLevel) {
       // ── STEERING APLICADO / DRIFT ────────────────────────────────────
       const speedFrac = Math.abs(g.speed) / g.maxSpeed;
       // Drift solo cuando el auto se mueve (evita que gire en el eje parado)
-      g.angle += driftOffset(chorsa, t, 13) * dt * 0.9 * speedFrac;
+      g.angle += driftOffset(chorsa, t, 13) * dt * 0.50 * speedFrac;
       g.angle += steer * g.maxSteerRate * speedFrac * dt;
 
       g.wheelAngle += g.speed * dt * 0.05;
@@ -388,15 +379,15 @@ export function createParking(chorsaLevel) {
       ctx.fillStyle = 'rgba(0,0,0,0.55)';
       ctx.fillRect(0, panelY, w, h - panelY);
 
-      // Zonas de toque (visual sutil)
-      const gasX = w * 0.58, brakeX = w * 0.42;
+      // Zonas de toque (visual sutil) — solo en fila inferior
+      const pedalYr = h * PEDAL_Y_F;
       if (g.gas) {
         ctx.fillStyle = 'rgba(45,224,122,0.10)';
-        ctx.fillRect(gasX, panelY, w - gasX, h - panelY);
+        ctx.fillRect(w * 0.65, pedalYr, w * 0.35, h - pedalYr);
       }
       if (g.brake) {
         ctx.fillStyle = 'rgba(226,59,46,0.10)';
-        ctx.fillRect(0, panelY, brakeX, h - panelY);
+        ctx.fillRect(0, pedalYr, w * 0.35, h - pedalYr);
       }
       ctx.strokeStyle = 'rgba(255,255,255,0.12)';
       ctx.lineWidth = 1.5;
@@ -405,28 +396,21 @@ export function createParking(chorsaLevel) {
       ctx.lineTo(w, panelY);
       ctx.stroke();
 
-      // ── PEDAL GAS (verde) ────────────────────────────────────────────
-      const gx = w * GAS_CX_F, gy = h * GAS_CY_F;
-      drawPedal(ctx, gx, gy, PEDAL_R, g.gas, '#2de07a', '#16a04e', 'GAS');
-
-      // ── PEDAL FRENO (rojo) ───────────────────────────────────────────
-      const bxp = w * BRAKE_CX_F, byp = h * BRAKE_CY_F;
-      drawPedal(ctx, bxp, byp, PEDAL_R, g.brake, '#e23b2e', '#8e1a13', 'FRENO');
-
-      // ── VOLANTE ──────────────────────────────────────────────────────
+      // ── VOLANTE (fila superior del panel) ────────────────────────────
       const vx = w * VOLANTE_CX_F, vy = h * VOLANTE_CY_F;
       drawVolante(ctx, vx, vy, VOLANTE_R, g.steerAngle, g.touchVolante !== null);
 
-      // ── INDICADOR MARCHA grande (encima del volante) ─────────────────
-      ctx.save();
-      ctx.fillStyle = g.reverse ? '#e23b2e' : '#2de07a';
-      ctx.font = '900 22px system-ui, sans-serif';
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.shadowColor = 'rgba(0,0,0,0.7)';
-      ctx.shadowBlur = 6;
-      ctx.fillText(g.reverse ? 'R' : 'D', vx, vy - VOLANTE_R - 18);
-      ctx.shadowBlur = 0;
-      ctx.restore();
+      // ── PEDAL GAS (verde, fila inferior) ────────────────────────────
+      const gx = w * GAS_CX_F, gy = h * GAS_CY_F;
+      drawPedal(ctx, gx, gy, PEDAL_R, g.gas, '#2de07a', '#16a04e', 'GAS');
+
+      // ── PEDAL FRENO (rojo, fila inferior) ───────────────────────────
+      const bxp = w * BRAKE_CX_F, byp = h * BRAKE_CY_F;
+      drawPedal(ctx, bxp, byp, PEDAL_R, g.brake, '#e23b2e', '#8e1a13', 'FRENO');
+
+      // ── BOTÓN R/D (centro, fila inferior) ───────────────────────────
+      const gearX = w * GEAR_CX_F, gearY = h * GEAR_CY_F;
+      drawGearBtn(ctx, gearX, gearY, PEDAL_R, g.reverse);
     },
   });
 }
@@ -472,6 +456,29 @@ function drawPedal(ctx, x, y, r, pressed, colorActive, colorBase, label) {
   ctx.font = `900 ${pressed ? 16 : 14}px system-ui, sans-serif`;
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.fillText(label, x, y);
+  ctx.restore();
+}
+
+function drawGearBtn(ctx, x, y, r, reverse) {
+  ctx.save();
+  ctx.fillStyle = 'rgba(0,0,0,0.45)';
+  ctx.beginPath(); ctx.arc(x, y + 4, r, 0, Math.PI * 2); ctx.fill();
+
+  const col = reverse ? '#e23b2e' : '#2de07a';
+  const grad = ctx.createRadialGradient(x - r * 0.3, y - r * 0.3, r * 0.15, x, y, r);
+  grad.addColorStop(0, col);
+  grad.addColorStop(1, reverse ? '#6a1010' : '#0e5a30');
+  ctx.fillStyle = grad;
+  ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+
+  ctx.strokeStyle = col;
+  ctx.lineWidth = 3;
+  ctx.stroke();
+
+  ctx.fillStyle = '#fff';
+  ctx.font = '900 20px system-ui, sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(reverse ? 'R' : 'D', x, y);
   ctx.restore();
 }
 
