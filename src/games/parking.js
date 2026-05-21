@@ -8,18 +8,18 @@ import { driftOffset } from '../engine/effects.js';
 import { sfx } from '../engine/audio.js';
 
 const VOLANTE_CX_F = 0.50;
-const VOLANTE_CY_F = 0.79;   // volante en la mitad superior del panel
-const VOLANTE_R = 56;
+const VOLANTE_CY_F = 0.76;   // volante en la mitad superior del panel
+const VOLANTE_R = 50;
 const PEDAL_R = 38;
 const GAS_CX_F   = 0.84;
-const GAS_CY_F   = 0.89;
+const GAS_CY_F   = 0.91;
 const BRAKE_CX_F = 0.16;
-const BRAKE_CY_F = 0.89;
+const BRAKE_CY_F = 0.91;
 const GEAR_CX_F  = 0.50;
-const GEAR_CY_F  = 0.89;
+const GEAR_CY_F  = 0.91;
 // Panel de control arranca aquí; PEDAL_Y_F divide volante (arriba) de pedales (abajo)
-const PANEL_Y_F = 0.72;
-const PEDAL_Y_F = 0.83;
+const PANEL_Y_F = 0.68;
+const PEDAL_Y_F = 0.84;
 const MAX_STEER_ANGLE = Math.PI * 0.85;
 const STEER_RETURN_RATE = 5;
 
@@ -213,6 +213,9 @@ export function createParking(chorsaLevel) {
         // retorno al centro
         g.steerAngle += (0 - g.steerAngle) * Math.min(1, dt * STEER_RETURN_RATE);
       }
+      // Drift del volante proporcional a chorsa.drift (borracho que no puede mantener el volante recto)
+      const drunkSteer = driftOffset(chorsa, t, 99) * chorsa.drift * 0.65;
+      g.steerAngle = clamp(g.steerAngle + drunkSteer * dt, -MAX_STEER_ANGLE, MAX_STEER_ANGLE);
       const steer = g.steerAngle / MAX_STEER_ANGLE; // normalizado -1..1
 
       // Reversa se activa solo con el botón R/D del panel
