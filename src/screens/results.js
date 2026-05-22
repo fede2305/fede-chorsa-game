@@ -5,6 +5,16 @@ import { slotsForEtapa } from '../lineup.js';
 import { GAMES } from '../games/registry.js';
 import { fetchLeaderboard } from '../supabase.js';
 
+// Cierre narrativo por etapa (1-5). Índice = número de etapa.
+const ETAPA_CLOSERS = [
+  null, // índice 0 no se usa
+  'Chorsa llegó al asado. Tarde, despeinado, pero llegó. La noche apenas arrancaba.',
+  'Birras (calientes) servidas, tanque lleno, primer control superado. Lo de "sobrio" quedó oficialmente atrás.',
+  'El atajo quedó atrás y la dignidad también. El modo chorsa ya no se podía apagar.',
+  'Nadie sabe bien qué pasó en esta etapa. Chorsa tampoco. Pero algo pasó, y fue glorioso.',
+  'Sobrevivió la noche, sobrevivió el 4, sobrevivió a sí mismo. La leyenda de Chorsa queda completa. Salud.',
+];
+
 export function renderResults(root, { go, state, params }) {
   const etapa = params.etapa;
   const slots = slotsForEtapa(etapa);
@@ -17,6 +27,7 @@ export function renderResults(root, { go, state, params }) {
     <h1>${ETAPA_NAMES[etapa]} <span class="brand">completada</span></h1>
     <div class="score-big" style="text-align:left">${etapaTotal}</div>
     <p>Puntos de esta etapa</p>
+    <p class="muted">${ETAPA_CLOSERS[etapa] || ''}</p>
 
     <h2>Desglose</h2>
     <div id="bd"></div>

@@ -5,35 +5,37 @@ export function renderIntro(root, { go }) {
   s.className = 'screen';
   s.innerHTML = `
     <h1>El juego de <span class="brand">Fede Chorsa</span></h1>
-    <p>Antes de competir, la historia. Toca para leer y arranca.</p>
+    <p>Antes de competir, la leyenda. Leé las tres tarjetas y arrancá.</p>
 
     <div class="story-card">
       <div class="lvl">El Corsa rojo</div>
       <p style="margin-bottom:0">
-        Fede tenia un Corsa rojo, modelo 2011. Venia de un grupo de autos
-        donde habia mil Fedes... asi que para diferenciarlo quedo
-        <b class="brand">"Fede Corsa"</b>.
+        Fede tenía un Corsa rojo, modelo 2011. El problema era que en su
+        grupo había mil Fedes y ningún método para distinguirlos. El auto
+        resolvió el problema: desde entonces fue, para todos,
+        <b class="brand">Fede Corsa</b>.
       </p>
     </div>
 
     <div class="story-card">
       <div class="lvl">De Corsa a Chorsa</div>
       <p style="margin-bottom:0">
-        Cambio de auto un par de veces, pero el apodo quedo. Y cuando la
-        noche avanzaba y Fede se ponia en pedo, entraba en
-        <b class="brand">"modo Chorsa"</b>: todo se aceleraba,
-        se mareaba, la realidad se distorsionaba.
+        Pasaron los años y los autos; el apodo no se movió. Y la leyenda
+        creció con un descubrimiento: cuando la noche avanzaba y las birras
+        se acumulaban, Fede entraba en <b class="brand">modo Chorsa</b>. El
+        mundo se aceleraba, la pantalla temblaba, la realidad se iba de tema.
+        Una letra de diferencia. Un universo de diferencia.
       </p>
     </div>
 
     <div class="story-card">
-      <div class="lvl">Tu mision</div>
+      <div class="lvl">La noche</div>
       <p style="margin-bottom:0">
-        5 etapas de la noche, 3 minijuegos cada una. A medida que pasan las
-        horas se desbloquean etapas nuevas y el <b class="brand">modo
-        chorsa</b> sube: el auto se va solo, tiembla la pantalla, todo se
-        pone mas dificil. Sumas puntos en los 15 desafios. El que mas junta,
-        gana.
+        Lo que sigue es la crónica de una de esas noches. <b class="brand">5
+        etapas, de las 21:00 al amanecer</b>, 3 pruebas cada una. Cada hora
+        que pasa abre una etapa nueva — y sube el modo chorsa: el auto se va
+        solo, todo tiembla, todo cuesta más. Son 15 desafíos. El que más
+        puntos junta, gana. El resto, igual la pasó bien.
       </p>
     </div>
 

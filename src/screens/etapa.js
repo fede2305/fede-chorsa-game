@@ -13,25 +13,45 @@ import { sfx, startMusic, stopMusic } from '../engine/audio.js';
 const ANECDOTES = [
   null, // índice 0 no se usa
   {
-    title: 'Antes de arrancar...',
-    text: 'Chorsa llegó al asado con las birras calientes. La heladera había estado desenchufada desde el viernes. Lo consideró "no su problema".',
+    title: 'Arranca la leyenda',
+    text: 'Eran las nueve. Chorsa, todavía sobrio — peligroso de otras maneras —, bajó al estacionamiento rumbo al asado. Tres pruebas lo esperaban antes de llegar. No vio venir ninguna.',
   },
   {
-    title: 'Segunda vuelta...',
-    text: 'Después de la cuarta cerveza intentó explicar el offside con servilletas. Terminó dibujando un mapa del tesoro. Ganó el debate igual.',
+    title: 'El asado',
+    text: 'Chorsa llegó al asado y, como cada vez, lo pusieron a cargo de las birras. Como cada vez, fue un error: la heladera llevaba desenchufada desde el viernes. Chorsa lo consideró "no su problema" y se sirvió la primera.',
   },
   {
-    title: 'Y dale...',
-    text: 'Juró conocer un atajo. Llegamos a la fiesta 40 minutos tarde y dos provincias de más. Hasta hoy dice que fue intencional.',
+    title: 'El atajo',
+    text: 'A esta altura lo de "alegre" había quedado lejos. Chorsa anunció que conocía un atajo. El atajo agregó cuarenta minutos y dos provincias. Hasta hoy jura que fue parte del plan.',
   },
   {
-    title: 'Nivel avanzado...',
-    text: 'A las 3AM llamó un Uber para ir al kiosco de la esquina. Le explicó al conductor la ruta más eficiente durante 15 minutos. El recorrido fue de 50 metros.',
+    title: 'Modo Chorsa',
+    text: 'Medianoche, modo Chorsa al máximo. Fue la hora en que pidió un Uber para ir al kiosco de la esquina y le explicó la ruta al conductor durante quince minutos. El viaje, de punta a punta, fueron cincuenta metros.',
   },
   {
-    title: '🚨 MODO FULL CHORSA 🚨',
-    text: 'A las 5AM decidió que el baño era el mejor lugar para hablar de sus sentimientos. Todos lloramos. Nadie recuerda por qué. Bienvenido al nivel final.',
+    title: '🚨 FULL CHORSA 🚨',
+    text: 'Cinco de la mañana. Chorsa decidió que el baño era el mejor lugar para hablar de sus sentimientos. Todos lloraron; nadie recuerda por qué. Quedan tres pruebas para cerrar la leyenda: es todo o nada.',
   },
+];
+
+// Gancho narrativo por slot (1-15). Índice = número de slot del lineup.
+const HOOKS = [
+  null, // índice 0 no se usa
+  'Mil autos rojos, todos parecidos. Chorsa juró reconocer el suyo de un vistazo, con las llaves de otro auto en la mano.',
+  'Corsa encontrado, reloj en contra. El asado ni había empezado y ya llegaba tarde. Chorsa hundió el acelerador.',
+  'Sábado a la noche, la avenida es un campo minado. Chorsa esquivó autos, colectivos y la mitad de sus decisiones.',
+  'Las birras estaban calientes pero volaban de mano en mano. Chorsa, manos de manteca, se ofreció a que ninguna tocara el piso.',
+  'Se acabó la birra. "Voy yo", dijo Chorsa, palabras que nunca terminaron bien. Pero antes del chino, había que cargar nafta.',
+  'Volviendo del chino, luces azules en la esquina. Control. Chorsa estaba apenas "alegre": soplar derecho era, técnicamente, posible.',
+  'Los reflejos de Chorsa ya venían con retraso. El auto de adelante frenó. Chorsa se enteró bastante después.',
+  'En el semáforo, el auto de al lado aceleró en falso. Chorsa lo tomó como un duelo de honor. No lo era. Picó igual.',
+  'El famoso atajo. Nadie sabía dónde estaban, Chorsa menos que nadie. Esquivó todo lo que apareció, seguro de que faltaba poco.',
+  'Chorsa llegó a algún lado. Había un hueco más o menos del tamaño de un Corsa. "Más o menos" le pareció suficiente.',
+  'Otro control, otra vez. Pero ahora el aire le salía en zigzag y "soplar despacio" le sonaba a idioma extranjero.',
+  'La fiesta ya se mudó tres veces. Las birras seguían apareciendo, y Chorsa, además, veía algunas que no existían.',
+  'Última frenada de la noche. Reflejos: cero. Confianza: intacta. Chorsa apuntó el dedo y se encomendó.',
+  'Alguien dijo las palabras malditas: "dale, hacé el 4". Chorsa levantó una pierna y el piso, ofendido, se puso a girar.',
+  'Última misión: meter el Corsa en el box y cerrar la leyenda. Despacio y con cuidado, se dijo Chorsa, antes de no hacer ninguna de las dos cosas.',
 ];
 
 export function renderEtapa(root, { go, state, params }) {
@@ -161,7 +181,7 @@ export function renderEtapa(root, { go, state, params }) {
     await waitChoice(
       `<div class="lvl-tag">${ETAPA_NAMES[etapa]} &middot; minijuego ${idx + 1}/${slots.length}</div>
        <div class="big" style="font-size:30px;margin:6px 0 8px">${meta.name}</div>
-       <p style="font-size:16px;color:#d4d4d8;margin:4px 0 12px">${meta.tip || ''}</p>
+       <p style="font-size:16px;color:#d4d4d8;margin:4px 0 12px">${HOOKS[slot.slot] || meta.tip || ''}</p>
        ${bulletsHtml ? `<ul class="tip-bullets">${bulletsHtml}</ul>` : ''}
        ${iconHtml}
        ${slot.boss ? '<p class="boss-tag">JEFE FINAL &mdash; chorsa al máximo</p>' : ''}
@@ -295,7 +315,7 @@ export function renderDemoGame(root, { go, state, params }) {
     await waitChoice(
       `<div class="lvl-tag">DEMO &mdash; Chorsa ${slot.chorsa}</div>
        <div class="big">${meta.name}</div>
-       <p>${meta.tip || ''}</p>
+       <p>${HOOKS[slot.slot] || meta.tip || ''}</p>
        <p class="muted" style="font-size:12px">Los puntajes no se guardan en modo demo.</p>`,
       [{ label: 'Jugar' }, { label: 'Volver', cls: 'secondary' }]
     ).then(async (choice) => {
