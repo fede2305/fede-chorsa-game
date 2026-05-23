@@ -15,6 +15,41 @@ let currentUser = null;
 
 const LS_USER = 'fc_demo_user';
 const LS_SCORES = 'fc_demo_scores';
+const LS_LOCAL_SESSION = 'fc_local_session'; // { id, username, displayName, password }
+
+const ADMIN_SECRET = 'ChorsaCumple29$';
+
+// Lista de palabras simples ES (sin acentos ni ñ) para generar passwords
+// faciles de dictar por voz. ~90 opciones * 100 numeros = 9000 combinaciones.
+const PWD_WORDS = [
+  'gato','perro','sol','luna','pizza','taco','mate','fuego','hielo','agua',
+  'miel','pan','vino','queso','asado','dulce','sal','limon','mango','pera',
+  'kiwi','uva','mora','banana','papa','maiz','arroz','leche','cafe','jugo',
+  'soda','birra','fernet','ajo','cebolla','tomate','palta','jamon','churro','helado',
+  'torta','flan','beso','abrazo','fiesta','baile','ritmo','salsa','tango','rock',
+  'punk','jazz','blues','samba','cumbia','reggae','disco','metal','indie','pop',
+  'mar','rio','cielo','nube','lluvia','viento','nieve','playa','monte','bosque',
+  'rosa','clavel','jazmin','cactus','flor','arbol','hoja','rama','raiz','tronco',
+  'oro','plata','cobre','bronce','rubi','jade','opalo','topacio','ambar','perla',
+];
+
+export function generateLocalPassword() {
+  const w = PWD_WORDS[Math.floor(Math.random() * PWD_WORDS.length)];
+  const n = String(Math.floor(Math.random() * 100)).padStart(2, '0');
+  return w + n;
+}
+
+function localSession() {
+  try { return JSON.parse(localStorage.getItem(LS_LOCAL_SESSION) || 'null'); }
+  catch { return null; }
+}
+function setLocalSession(s) {
+  if (s) localStorage.setItem(LS_LOCAL_SESSION, JSON.stringify(s));
+  else localStorage.removeItem(LS_LOCAL_SESSION);
+}
+function localToUser(s) {
+  return s ? { id: s.id, name: s.displayName, avatar: null, local: true } : null;
+}
 
 function demoUser() {
   let name = localStorage.getItem(LS_USER);
@@ -32,9 +67,17 @@ export async function initAuth() {
   }
   client = createClient(URL, KEY);
   const { data } = await client.auth.getSession();
-  currentUser = mapUser(data.session?.user);
+  if (data.session?.user) {
+    currentUser = mapUser(data.session.user);
+  } else {
+    // Sin sesion Google: ver si hay sesion local guardada.
+    currentUser = localToUser(localSession());
+  }
   client.auth.onAuthStateChange((_evt, session) => {
-    currentUser = mapUser(session?.user);
+    if (session?.user) {
+      currentUser = mapUser(session.user);
+      setLocalSession(null); // login Google reemplaza sesion local
+    }
   });
 }
 
@@ -69,9 +112,31 @@ export async function signInWithGoogle(demoName) {
   return null;
 }
 
+// Login con cuenta manual (creada por admin). Lanza Error si falla.
+export async function signInWithLocal(username, password) {
+  if (OFFLINE) throw new Error('Modo offline: no hay cuentas manuales.');
+  if (!client) client = createClient(URL, KEY);
+  const { data, error } = await client.rpc('local_account_login', {
+    p_username: username,
+    p_password: password,
+  });
+  if (error) throw new Error(error.message);
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row) throw new Error('Usuario o clave incorrectos');
+  const sess = { id: row.id, username: row.username, displayName: row.display_name, password };
+  setLocalSession(sess);
+  currentUser = localToUser(sess);
+  return currentUser;
+}
+
 export async function signOut() {
   if (OFFLINE) {
     localStorage.removeItem(LS_USER);
+    currentUser = null;
+    return;
+  }
+  if (currentUser?.local) {
+    setLocalSession(null);
     currentUser = null;
     return;
   }
@@ -107,6 +172,21 @@ export async function submitScore(user, slot, score) {
     localStorage.setItem(LS_SCORES, JSON.stringify(scores));
     return scores[slot];
   }
+  if (user?.local) {
+    const sess = localSession();
+    if (!sess) { console.warn('submitScore: sin sesion local'); return score; }
+    const { data, error } = await client.rpc('local_submit_score', {
+      p_user_id: sess.id,
+      p_password: sess.password,
+      p_display_name: sess.displayName,
+      p_slot: slot,
+      p_etapa: meta.etapa,
+      p_game: meta.game,
+      p_score: score,
+    });
+    if (error) { console.warn('local_submit_score:', error.message); return score; }
+    return data ?? score;
+  }
   const { data: existing } = await client
     .from('scores')
     .select('best_score')
@@ -135,6 +215,16 @@ export async function submitScore(user, slot, score) {
 export async function clearMyScores(userId) {
   if (OFFLINE) {
     localStorage.removeItem(LS_SCORES);
+    return null;
+  }
+  if (currentUser?.local) {
+    const sess = localSession();
+    if (!sess) return 'sin sesion local';
+    const { error } = await client.rpc('local_clear_scores', {
+      p_user_id: sess.id,
+      p_password: sess.password,
+    });
+    if (error) { console.warn('local_clear_scores:', error.message); return error.message; }
     return null;
   }
   const { error } = await client.from('scores').delete().eq('user_id', userId);
@@ -166,6 +256,66 @@ export async function adminResetAll() {
   }
   const { error } = await client.rpc('admin_reset_all', { p_secret: 'ChorsaCumple29$' });
   if (error) { console.warn('adminResetAll:', error.message); return error.message; }
+  return null;
+}
+
+// ── ADMIN: cuentas manuales (sin Google) ─────────────────────────────────
+// Devuelve { username, displayName, password, id } o { error: '...' }.
+export async function adminCreateLocalAccount(username, displayName) {
+  if (OFFLINE) return { error: 'Modo offline: no hay backend para crear cuentas.' };
+  const password = generateLocalPassword();
+  const { data, error } = await client.rpc('local_account_create', {
+    p_username: username,
+    p_display_name: displayName,
+    p_password: password,
+    p_secret: ADMIN_SECRET,
+  });
+  if (error) {
+    if (/duplicate key/i.test(error.message) || /unique/i.test(error.message)) {
+      return { error: 'Ese usuario ya existe' };
+    }
+    return { error: error.message };
+  }
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row) return { error: 'Sin respuesta del servidor' };
+  return { id: row.id, username: row.username, displayName: row.display_name, password: row.password };
+}
+
+// Lista todas las cuentas locales. Devuelve [] si error.
+export async function adminListLocalAccounts() {
+  if (OFFLINE) return [];
+  const { data, error } = await client.rpc('local_account_list', { p_secret: ADMIN_SECRET });
+  if (error) { console.warn('local_account_list:', error.message); return []; }
+  return (data || []).map((r) => ({
+    id: r.id,
+    username: r.username,
+    displayName: r.display_name,
+    password: r.password,
+    createdAt: r.created_at,
+  }));
+}
+
+// Genera nueva clave y la setea. Devuelve { password } o { error }.
+export async function adminRegenerateLocalPassword(userId) {
+  if (OFFLINE) return { error: 'Modo offline.' };
+  const password = generateLocalPassword();
+  const { error } = await client.rpc('local_account_regenerate_password', {
+    p_user_id: userId,
+    p_password: password,
+    p_secret: ADMIN_SECRET,
+  });
+  if (error) return { error: error.message };
+  return { password };
+}
+
+// Borra cuenta local + todos sus scores. Retorna null si ok, string si falla.
+export async function adminDeleteLocalAccount(userId) {
+  if (OFFLINE) return 'Modo offline.';
+  const { error } = await client.rpc('local_account_delete', {
+    p_user_id: userId,
+    p_secret: ADMIN_SECRET,
+  });
+  if (error) { console.warn('local_account_delete:', error.message); return error.message; }
   return null;
 }
 

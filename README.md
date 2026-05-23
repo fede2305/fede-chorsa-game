@@ -72,6 +72,23 @@ Horarios de desbloqueo (editar en `src/clock.js` si cambia el cronograma):
    VITE_SUPABASE_ANON_KEY=tu-anon-key
    ```
 
+### 1b. (Opcional) Cuentas sin Google
+
+Para los que no tengan cuenta de Google, podes generarles un usuario + clave
+desde el panel admin. Para habilitarlo, corre el SQL de
+[`supabase/local_accounts.sql`](supabase/local_accounts.sql) en el **SQL Editor**
+de Supabase (una sola vez). Crea la tabla `local_accounts` y las RPCs que el
+panel admin usa para crear, listar, regenerar y borrar cuentas.
+
+Despues, en el juego: 5 toques en tu puntaje total → clave admin → seccion
+"Usuarios sin Google" → completa nombre + usuario → boton "Crear". La app te
+muestra el usuario y una clave generada (palabra + 2 numeros, facil de dictar).
+Se la pasas a la persona y entra desde el login con "Entrar con usuario".
+
+**Heads up sobre seguridad:** las claves se guardan en plaintext en la DB,
+asumiendo que es un cumple entre amigos y el riesgo es bajo. Si la base se
+filtra, las claves se ven. No reuses claves importantes.
+
 ### 2. Activar login con Google
 
 1. En **Google Cloud Console** (https://console.cloud.google.com):
@@ -121,10 +138,12 @@ src/
   chorsa.js        parametros del modo chorsa por nivel (1-5)
   lineup.js        orden FIJO de los 15 slots (no cambiar durante el evento)
   clock.js         desbloqueo de etapas por hora real
-  supabase.js      auth Google + guardado de puntajes (con fallback offline)
+  supabase.js      auth Google + cuentas locales + guardado de puntajes
   screens/         intro, login, lobby, etapa, results
   engine/          canvas.js (loop + input), effects.js (distorsion), sprites.js
   games/           los 9 minijuegos + base.js + registry.js
+supabase/
+  local_accounts.sql  tabla + RPCs para cuentas manuales (sin Google)
 ```
 
 ## Ajustar dificultad

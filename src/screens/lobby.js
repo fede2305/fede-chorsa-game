@@ -4,8 +4,11 @@
 import { ETAPA_NAMES } from '../chorsa.js';
 import { LINEUP, slotsForEtapa, totalEtapas } from '../lineup.js';
 import { GAMES } from '../games/registry.js';
-import { isEtapaUnlocked, unlockLabel, isDemoMode, setDemoMode } from '../clock.js';
-import { fetchLeaderboard, signOut, clearMyScores, adminResetPlayer, adminResetAll, fetchMyScores } from '../supabase.js';
+import { isEtapaUnlocked, unlockLabel, isDemoMode, setDemoMode, isNightOver } from '../clock.js';
+import {
+  fetchLeaderboard, signOut, clearMyScores, adminResetPlayer, adminResetAll, fetchMyScores,
+  adminCreateLocalAccount, adminListLocalAccounts, adminRegenerateLocalPassword, adminDeleteLocalAccount,
+} from '../supabase.js';
 
 function totalScore(scores) {
   return Object.values(scores).reduce((a, b) => a + b, 0);
@@ -73,6 +76,7 @@ function _renderLobby(root, { go, state }) {
 
     const card = document.createElement('div');
     card.className = 'etapa-card' + (unlocked && !completed ? '' : ' locked');
+    const nightOver = isNightOver() && !isDemoMode();
     card.innerHTML = `
       <div class="num">${e}</div>
       <div class="info">
@@ -82,6 +86,8 @@ function _renderLobby(root, { go, state }) {
             ? 'Ya jugaste — intentos agotados'
             : unlocked
             ? (partial ? `En progreso — ${nDone}/${games} jugados` : `${games} minijuegos`)
+            : nightOver
+            ? 'Termino la noche'
             : `Se abre ${unlockLabel(e)}`
         }</div>
       </div>
@@ -230,7 +236,7 @@ function openAdminPanel(root, { go, state }) {
       <h3 style="margin:0 0 8px;font-size:15px">Modo demo</h3>
       <p style="font-size:13px;color:#aaa;margin:0 0 8px">Desbloquea todas las etapas sin importar la hora.</p>
       <button class="btn" id="toggle-demo" style="margin-bottom:20px;width:100%">
-        Demo: ${demo ? '✅ ACTIVO' : '❌ INACTIVO'}
+        Demo: ${demo ? '✅ ACTIVO' : '❌ INACTIVO'} ${adminUnlocked ? '' : '🔒'}
       </button>
 
       <h3 style="margin:0 0 8px;font-size:15px">Desbloquear etapas para rejugar</h3>
@@ -241,7 +247,22 @@ function openAdminPanel(root, { go, state }) {
         Borrar mis puntajes ${adminUnlocked ? '' : '🔒'}
       </button>
 
-      <h3 style="margin:0 0 8px;font-size:15px">Jugadores</h3>
+      <h3 style="margin:0 0 8px;font-size:15px">Usuarios sin Google</h3>
+      <p style="font-size:12px;color:#888;margin:0 0 10px">Crea cuentas para los que no tienen Google. Se les genera una clave facil.</p>
+      <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px">
+        <input id="lu-name" maxlength="40" placeholder="Nombre visible (ej: Maria Lopez)"
+          style="width:100%;padding:8px 12px;border-radius:8px;border:1px solid #444;background:#1a1a24;color:#fff;font-size:14px;box-sizing:border-box">
+        <input id="lu-user" maxlength="20" placeholder="Usuario (ej: maria) — sin espacios"
+          autocapitalize="off" autocomplete="off"
+          style="width:100%;padding:8px 12px;border-radius:8px;border:1px solid #444;background:#1a1a24;color:#fff;font-size:14px;box-sizing:border-box">
+      </div>
+      <button class="btn" id="lu-create" style="width:100%;margin-bottom:8px">
+        Crear usuario ${adminUnlocked ? '' : '🔒'}
+      </button>
+      <div id="lu-result" style="min-height:1px;margin-bottom:14px"></div>
+      <div id="lu-list"><div class="spinner"></div></div>
+
+      <h3 style="margin:24px 0 8px;font-size:15px">Jugadores</h3>
       <div id="admin-players"><div class="spinner"></div></div>
 
       <button class="btn secondary" id="close-admin" style="width:100%;margin-top:24px">Cerrar</button>
@@ -250,27 +271,27 @@ function openAdminPanel(root, { go, state }) {
     overlay.appendChild(card);
     root.appendChild(overlay);
 
-    // toggle demo (no requiere clave)
-    card.querySelector('#toggle-demo').onclick = () => {
+    // toggle demo (requiere clave)
+    card.querySelector('#toggle-demo').onclick = () => requireAdmin(() => {
       setDemoMode(!demo);
       overlay.remove();
       root.innerHTML = '';
       renderLobby(root, { go, state });
-    };
+    });
 
-    // etapa unlock buttons (no requiere clave)
+    // etapa unlock buttons (requiere clave)
     const etapaUnlocks = card.querySelector('#etapa-unlocks');
     for (let e = 1; e <= totalEtapas(); e++) {
       if (state.completedEtapas.includes(e)) {
         const btn = document.createElement('button');
         btn.className = 'btn ghost';
         btn.style.cssText = 'padding:6px 14px;font-size:13px';
-        btn.textContent = `Etapa ${e}`;
-        btn.onclick = () => {
+        btn.textContent = `${adminUnlocked ? '' : '🔒 '}Etapa ${e}`;
+        btn.onclick = () => requireAdmin(() => {
           state.completedEtapas = state.completedEtapas.filter((x) => x !== e);
           localStorage.setItem('fc_completed', JSON.stringify(state.completedEtapas));
           rebuild();
-        };
+        });
         etapaUnlocks.appendChild(btn);
       }
     }
@@ -290,6 +311,101 @@ function openAdminPanel(root, { go, state }) {
       root.innerHTML = '';
       renderLobby(root, { go, state });
     });
+
+    // ── Usuarios sin Google ────────────────────────────────────────────────
+    const luNameInput = card.querySelector('#lu-name');
+    const luUserInput = card.querySelector('#lu-user');
+    const luCreateBtn = card.querySelector('#lu-create');
+    const luResult = card.querySelector('#lu-result');
+    const luList = card.querySelector('#lu-list');
+
+    function showCreatedCreds({ username, displayName, password }) {
+      luResult.innerHTML = `
+        <div style="background:#1e3a1e;border:1px solid #3a6f3a;border-radius:10px;padding:12px;font-size:13px">
+          <div style="color:#7ed87e;font-weight:700;margin-bottom:6px">✅ Cuenta creada</div>
+          <div style="margin-bottom:4px"><b>Nombre:</b> ${escapeHtml(displayName)}</div>
+          <div style="margin-bottom:4px"><b>Usuario:</b> <code style="background:#0a0a12;padding:2px 6px;border-radius:4px">${escapeHtml(username)}</code></div>
+          <div style="margin-bottom:8px"><b>Clave:</b> <code style="background:#0a0a12;padding:2px 6px;border-radius:4px">${escapeHtml(password)}</code></div>
+          <button class="btn ghost" id="lu-copy" style="width:100%;padding:6px 10px;font-size:12px">Copiar usuario + clave</button>
+        </div>
+      `;
+      luResult.querySelector('#lu-copy').onclick = () => {
+        const txt = `Usuario: ${username}\nClave: ${password}`;
+        if (navigator.clipboard) navigator.clipboard.writeText(txt).then(
+          () => { luResult.querySelector('#lu-copy').textContent = '✅ Copiado'; },
+          () => { alert(txt); }
+        );
+        else alert(txt);
+      };
+    }
+
+    luCreateBtn.onclick = () => requireAdmin(async () => {
+      const displayName = (luNameInput.value || '').trim();
+      const username = (luUserInput.value || '').trim().toLowerCase().replace(/\s+/g, '');
+      if (!displayName || !username) {
+        luResult.innerHTML = '<div style="color:#e23b2e;font-size:13px">Completa nombre y usuario</div>';
+        return;
+      }
+      if (!/^[a-z0-9_-]+$/.test(username)) {
+        luResult.innerHTML = '<div style="color:#e23b2e;font-size:13px">Usuario solo con letras/numeros/guion</div>';
+        return;
+      }
+      luCreateBtn.disabled = true;
+      const res = await adminCreateLocalAccount(username, displayName);
+      luCreateBtn.disabled = false;
+      if (res.error) {
+        luResult.innerHTML = `<div style="color:#e23b2e;font-size:13px">Error: ${escapeHtml(res.error)}</div>`;
+        return;
+      }
+      luNameInput.value = '';
+      luUserInput.value = '';
+      showCreatedCreds(res);
+      renderLocalList();
+    });
+
+    async function renderLocalList() {
+      const accounts = await adminListLocalAccounts();
+      if (!accounts.length) {
+        luList.innerHTML = '<div style="color:#888;font-size:13px">Aun no creaste cuentas manuales.</div>';
+        return;
+      }
+      luList.innerHTML = '';
+      accounts.forEach((a) => {
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px;background:#15151e;border-radius:8px;margin-bottom:6px;flex-wrap:wrap';
+        row.innerHTML = `
+          <div style="flex:1;min-width:140px">
+            <div style="font-size:13px;font-weight:600">${escapeHtml(a.displayName)}</div>
+            <div style="font-size:11px;color:#888">${escapeHtml(a.username)} · <code style="background:#0a0a12;padding:1px 5px;border-radius:3px">${escapeHtml(a.password)}</code></div>
+          </div>
+        `;
+        const regen = document.createElement('button');
+        regen.className = 'btn ghost';
+        regen.style.cssText = 'padding:4px 10px;font-size:12px';
+        regen.textContent = '↻ Clave';
+        regen.onclick = () => requireAdmin(async () => {
+          const r = await adminRegenerateLocalPassword(a.id);
+          if (r.error) { alert(`Error: ${r.error}`); return; }
+          showCreatedCreds({ username: a.username, displayName: a.displayName, password: r.password });
+          renderLocalList();
+        });
+        const del = document.createElement('button');
+        del.className = 'btn ghost';
+        del.style.cssText = 'padding:4px 10px;font-size:12px;color:#e23b2e;border-color:#e23b2e';
+        del.textContent = 'Borrar';
+        del.onclick = () => requireAdmin(async () => {
+          if (!confirm(`¿Borrar la cuenta de ${a.displayName} y todos sus puntajes?`)) return;
+          const err = await adminDeleteLocalAccount(a.id);
+          if (err) { alert(`Error: ${err}`); return; }
+          renderLocalList();
+        });
+        row.appendChild(regen);
+        row.appendChild(del);
+        luList.appendChild(row);
+      });
+    }
+
+    renderLocalList();
 
     // players list
     fetchLeaderboard().then((rows) => {

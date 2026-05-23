@@ -10,6 +10,10 @@ const UNLOCK_TIMES = {
   5: { h: 0, m: 45 },
 };
 
+// La noche se cierra a las 5:00 AM. Despues de esa hora, todas las etapas
+// vuelven a estar bloqueadas (modo demo sigue funcionando para probar).
+const CLOSE_TIME = { h: 5, m: 0 };
+
 // Minutos desde el mediodia (ancla). Asi las horas de la fiesta (21:00 -> 00:45)
 // quedan ordenadas y el horario diurno previo a la fiesta cuenta como "antes".
 function nightMinutes(h, m) {
@@ -38,8 +42,13 @@ export function setDemoMode(on) {
   else localStorage.removeItem('fc_demo_mode');
 }
 
+export function isNightOver() {
+  return nowMinutes() >= nightMinutes(CLOSE_TIME.h, CLOSE_TIME.m);
+}
+
 export function isEtapaUnlocked(etapa) {
   if (isDemoMode()) return true;
+  if (isNightOver()) return false;
   const t = UNLOCK_TIMES[etapa];
   if (!t) return false;
   return nowMinutes() >= nightMinutes(t.h, t.m);
