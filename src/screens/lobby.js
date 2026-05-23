@@ -21,13 +21,19 @@ function etapaScore(scores, etapa) {
 export function renderLobby(root, { go, state, _skipRefresh }) {
   if (_skipRefresh) { _renderLobby(root, { go, state }); return; }
   // Refresca scores al entrar al lobby → detecta resets remotos
-  fetchMyScores(state.user?.id || 'local').then((fresh) => {
-    state.scores = fresh;
+  fetchMyScores(state.user?.id || 'local').then((data) => {
+    state.scores = data.scores || {};
+    state.attempts = data.attempts || {};
     // Si una etapa está marcada jugada pero ya no tiene scores, desbloquear
     const before = state.completedEtapas.length;
     state.completedEtapas = state.completedEtapas.filter((e) =>
-      slotsForEtapa(e).some((s) => s.slot in fresh)
+      slotsForEtapa(e).some((s) => s.slot in state.scores)
     );
+    // Tambien: si todos los slots de una etapa tienen attempts=2, marcar completed.
+    for (let e = 1; e <= 5; e++) {
+      const allDone = slotsForEtapa(e).every((s) => (state.attempts[s.slot] || 0) >= 2);
+      if (allDone && !state.completedEtapas.includes(e)) state.completedEtapas.push(e);
+    }
     if (state.completedEtapas.length !== before) {
       localStorage.setItem('fc_completed', JSON.stringify(state.completedEtapas));
     }
@@ -71,8 +77,9 @@ function _renderLobby(root, { go, state }) {
     const slotList = slotsForEtapa(e);
     const games = slotList.length;
     const escore = etapaScore(state.scores, e);
-    const nDone = slotList.filter((sl) => sl.slot in state.scores).length;
-    const partial = unlocked && !completed && nDone > 0;
+    const nDone = slotList.filter((sl) => (state.attempts[sl.slot] || 0) >= 2).length;
+    const nStarted = slotList.filter((sl) => (state.attempts[sl.slot] || 0) > 0).length;
+    const partial = unlocked && !completed && nStarted > 0;
 
     const card = document.createElement('div');
     card.className = 'etapa-card' + (unlocked && !completed ? '' : ' locked');
@@ -85,7 +92,7 @@ function _renderLobby(root, { go, state }) {
           completed
             ? 'Ya jugaste — intentos agotados'
             : unlocked
-            ? (partial ? `En progreso — ${nDone}/${games} jugados` : `${games} minijuegos`)
+            ? (partial ? `En progreso — ${nDone}/${games} terminados` : `${games} minijuegos`)
             : nightOver
             ? 'Termino la noche'
             : `Se abre ${unlockLabel(e)}`

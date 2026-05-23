@@ -72,6 +72,16 @@ Horarios de desbloqueo (editar en `src/clock.js` si cambia el cronograma):
    VITE_SUPABASE_ANON_KEY=tu-anon-key
    ```
 
+### 1a. Anti-trampa de intentos (recomendado)
+
+Para que el conteo de intentos por minijuego (max 2) sea a prueba de trampas
+y se sincronice entre dispositivos, corre el SQL de
+[`supabase/attempts_column.sql`](supabase/attempts_column.sql) en el SQL Editor.
+Agrega `attempts_used` a la tabla `scores` y actualiza la RPC `local_submit_score`.
+
+Sin esto, los warns en consola dicen "column scores.attempts_used does not exist"
+y los intentos no se persisten (cada vuelta al lobby resetea el contador).
+
 ### 1b. (Opcional) Cuentas sin Google
 
 Para los que no tengan cuenta de Google, podes generarles un usuario + clave
@@ -143,8 +153,28 @@ src/
   engine/          canvas.js (loop + input), effects.js (distorsion), sprites.js
   games/           los 9 minijuegos + base.js + registry.js
 supabase/
-  local_accounts.sql  tabla + RPCs para cuentas manuales (sin Google)
+  local_accounts.sql     tabla + RPCs para cuentas manuales (sin Google)
+  attempts_column.sql    columna attempts_used + RPC actualizada (anti-trampa)
 ```
+
+## Flujo de un minijuego
+
+Al entrar a una etapa, primero la anecdota (solo la primera vez) y despues
+un **picker** con los 3 minijuegos. Cada slot muestra:
+
+- `2 intentos disponibles` si no jugaste
+- `Te queda 1 intento — Mejor: X` si jugaste uno
+- `✓ Listo · X pts` si usaste los dos
+
+Eleges el que queres, jugas. Despues de intento 1, podes "Usar intento 2 ahora"
+o "Me quedo con esto" (lo deja para despues). Volves al picker hasta que la
+etapa entera tenga los dos intentos usados en todos los slots.
+
+### Anti-trampa
+
+Si tocas la ✕ durante un juego, pausa y aparece: "Si salis al lobby, este
+intento cuenta como usado (queda con 0 puntos)". No podes evitar gastar un
+intento abortando.
 
 ## Ajustar dificultad
 

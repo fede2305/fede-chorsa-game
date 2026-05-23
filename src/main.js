@@ -13,6 +13,7 @@ const app = document.getElementById('app');
 export const state = {
   user: null,
   scores: {}, // slot -> mejor puntaje
+  attempts: {}, // slot -> intentos usados (0..2). Anti-trampa.
   completedEtapas: JSON.parse(localStorage.getItem('fc_completed') || '[]'),
 };
 
@@ -32,8 +33,10 @@ export function go(screen, params = {}) {
 
 export async function refreshScores() {
   if (state.user) {
-    state.scores = await fetchMyScores(state.user.id);
-    // Si un etapa está marcada como jugada pero ya no tiene scores en DB,
+    const data = await fetchMyScores(state.user.id);
+    state.scores = data.scores || {};
+    state.attempts = data.attempts || {};
+    // Si una etapa está marcada como jugada pero ya no tiene scores en DB,
     // es porque los borraron remotamente → desbloquear automáticamente.
     const before = state.completedEtapas.length;
     state.completedEtapas = state.completedEtapas.filter((e) =>

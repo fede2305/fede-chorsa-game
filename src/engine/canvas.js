@@ -39,6 +39,7 @@ export class Stage {
     this.pointer = { x: 0, y: 0, down: false, justDown: false, justUp: false };
     this._raw = { x: 0, y: 0, down: false };
     this._destroyed = false;
+    this._paused = false;
     this._raf = 0;
 
     this._resize = this._resize.bind(this);
@@ -104,6 +105,12 @@ export class Stage {
 
       const step = (now) => {
         if (this._destroyed) return;
+        if (this._paused) {
+          // Pausa: no avanza tiempo ni logica, mantiene loop vivo para resume.
+          last = now;
+          this._raf = requestAnimationFrame(step);
+          return;
+        }
         let dt = (now - last) / 1000;
         last = now;
         if (dt > 0.05) dt = 0.05;
@@ -153,6 +160,9 @@ export class Stage {
       this._raf = requestAnimationFrame(step);
     });
   }
+
+  pause() { this._paused = true; }
+  resume() { this._paused = false; }
 
   destroy() {
     this._destroyed = true;

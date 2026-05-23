@@ -15,6 +15,7 @@ let currentUser = null;
 
 const LS_USER = 'fc_demo_user';
 const LS_SCORES = 'fc_demo_scores';
+const LS_ATTEMPTS = 'fc_demo_attempts';
 const LS_LOCAL_SESSION = 'fc_local_session'; // { id, username, displayName, password }
 
 const ADMIN_SECRET = 'ChorsaCumple29$';
@@ -144,32 +145,44 @@ export async function signOut() {
   currentUser = null;
 }
 
-// Devuelve { [slot]: bestScore } del usuario.
+// Devuelve { scores: { [slot]: bestScore }, attempts: { [slot]: 0..2 } }
+// del usuario actual.
 export async function fetchMyScores(userId) {
   if (OFFLINE) {
-    return JSON.parse(localStorage.getItem(LS_SCORES) || '{}');
+    return {
+      scores: JSON.parse(localStorage.getItem(LS_SCORES) || '{}'),
+      attempts: JSON.parse(localStorage.getItem(LS_ATTEMPTS) || '{}'),
+    };
   }
   const { data, error } = await client
     .from('scores')
-    .select('slot,best_score')
+    .select('slot,best_score,attempts_used')
     .eq('user_id', userId);
   if (error) {
     console.warn('fetchMyScores:', error.message);
-    return {};
+    return { scores: {}, attempts: {} };
   }
-  const map = {};
-  for (const row of data) map[row.slot] = row.best_score;
-  return map;
+  const scores = {}, attempts = {};
+  for (const row of data) {
+    scores[row.slot] = row.best_score;
+    attempts[row.slot] = row.attempts_used || 0;
+  }
+  return { scores, attempts };
 }
 
-// Guarda el puntaje de un slot si supera al guardado. Devuelve el mejor vigente.
-export async function submitScore(user, slot, score) {
+// Guarda el puntaje + cantidad de intentos usados (0..2) de un slot.
+// attempts nunca decrece (greatest server-side). best_score tampoco.
+// Devuelve el mejor vigente.
+export async function submitScore(user, slot, score, attempts) {
   const meta = LINEUP.find((s) => s.slot === slot);
-  if (isDemoMode()) return score; // demo: no guardar nada en DB ni localStorage
+  if (isDemoMode()) return score; // demo: no guardar nada
   if (OFFLINE) {
     const scores = JSON.parse(localStorage.getItem(LS_SCORES) || '{}');
+    const att = JSON.parse(localStorage.getItem(LS_ATTEMPTS) || '{}');
     if (!(slot in scores) || score > scores[slot]) scores[slot] = score;
+    att[slot] = Math.max(attempts || 0, att[slot] || 0);
     localStorage.setItem(LS_SCORES, JSON.stringify(scores));
+    localStorage.setItem(LS_ATTEMPTS, JSON.stringify(att));
     return scores[slot];
   }
   if (user?.local) {
@@ -183,17 +196,19 @@ export async function submitScore(user, slot, score) {
       p_etapa: meta.etapa,
       p_game: meta.game,
       p_score: score,
+      p_attempts: attempts || 0,
     });
     if (error) { console.warn('local_submit_score:', error.message); return score; }
     return data ?? score;
   }
   const { data: existing } = await client
     .from('scores')
-    .select('best_score')
+    .select('best_score,attempts_used')
     .eq('user_id', user.id)
     .eq('slot', slot)
     .maybeSingle();
   const best = Math.max(score, existing?.best_score || 0);
+  const att = Math.max(attempts || 0, existing?.attempts_used || 0);
   const { error } = await client.from('scores').upsert(
     {
       user_id: user.id,
@@ -203,6 +218,7 @@ export async function submitScore(user, slot, score) {
       etapa: meta.etapa,
       game: meta.game,
       best_score: best,
+      attempts_used: att,
       updated_at: new Date().toISOString(),
     },
     { onConflict: 'user_id,slot' }
@@ -215,6 +231,7 @@ export async function submitScore(user, slot, score) {
 export async function clearMyScores(userId) {
   if (OFFLINE) {
     localStorage.removeItem(LS_SCORES);
+    localStorage.removeItem(LS_ATTEMPTS);
     return null;
   }
   if (currentUser?.local) {
