@@ -183,37 +183,41 @@ function openAdminPanel(root, { go, state }) {
   let adminUnlocked = false;
 
   function promptPassword(onSuccess) {
-    overlay.innerHTML = '';
-    const card = document.createElement('div');
-    card.className = 'overlay-card';
-    card.style.cssText = 'max-width:320px;margin:auto;text-align:center;padding:28px';
-    card.innerHTML = `
-      <h3 style="margin:0 0 16px">Clave admin</h3>
-      <input id="pwd-input" type="password" placeholder="••••••••"
-        style="width:100%;padding:10px 14px;border-radius:10px;border:1px solid #444;background:#1a1a24;color:#fff;font-size:16px;box-sizing:border-box;margin-bottom:12px">
-      <p id="pwd-err" style="color:#e23b2e;font-size:13px;min-height:18px;margin:0 0 12px"></p>
-      <button class="btn" id="pwd-ok" style="width:100%;margin-bottom:10px">Entrar</button>
-      <button class="btn ghost" id="pwd-cancel" style="width:100%">Cancelar</button>
+    // Sub-modal encima del panel admin (no lo destruye). Asi los closures
+    // de los botones (crear usuario, regenerar, etc.) siguen viendo el DOM vivo.
+    const sub = document.createElement('div');
+    sub.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:1000;display:flex;align-items:center;justify-content:center;padding:16px';
+    sub.innerHTML = `
+      <div class="overlay-card" style="max-width:320px;width:100%;text-align:center;padding:28px">
+        <h3 style="margin:0 0 16px">Clave admin</h3>
+        <input id="pwd-input" type="password" placeholder="••••••••"
+          style="width:100%;padding:10px 14px;border-radius:10px;border:1px solid #444;background:#1a1a24;color:#fff;font-size:16px;box-sizing:border-box;margin-bottom:12px">
+        <p id="pwd-err" style="color:#e23b2e;font-size:13px;min-height:18px;margin:0 0 12px"></p>
+        <button class="btn" id="pwd-ok" style="width:100%;margin-bottom:10px">Entrar</button>
+        <button class="btn ghost" id="pwd-cancel" style="width:100%">Cancelar</button>
+      </div>
     `;
-    overlay.appendChild(card);
+    document.body.appendChild(sub);
 
-    const input = card.querySelector('#pwd-input');
+    const input = sub.querySelector('#pwd-input');
     input.focus();
 
+    const cleanup = () => sub.remove();
     const verify = () => {
       if (input.value === ADMIN_PASSWORD) {
         adminUnlocked = true;
+        cleanup();
         onSuccess();
       } else {
-        card.querySelector('#pwd-err').textContent = 'Clave incorrecta';
+        sub.querySelector('#pwd-err').textContent = 'Clave incorrecta';
         input.value = '';
         input.focus();
       }
     };
 
-    card.querySelector('#pwd-ok').onclick = verify;
+    sub.querySelector('#pwd-ok').onclick = verify;
     input.addEventListener('keydown', (e) => { if (e.key === 'Enter') verify(); });
-    card.querySelector('#pwd-cancel').onclick = () => rebuild();
+    sub.querySelector('#pwd-cancel').onclick = cleanup;
   }
 
   function requireAdmin(fn) {
